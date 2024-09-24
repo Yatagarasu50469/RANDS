@@ -304,7 +304,7 @@ The parallelism flag in the configuration file does not control GPU usage, only 
 ### When the images are opened, they appear blank or fail to load
 The WSI are sufficiently large that many common image viewing programs will fail to open them correctly (someitmes as a security measure against decompression attacks). gThumb (CentOS), Windows Photo Viewer, and GIMP are programs confirmed as being able to load these images. 
 
-##Development
+## Development
 
 ### Encountering OOM errors during new code development
 Ray/Python pin objects in memory if any reference to them still exists; references (particularly to large objects) must be prevented or deleted. Admittedly, there's probably a better way of handling this, but the current coding practices for reducing memory overhead and OOM errors are as follows:
