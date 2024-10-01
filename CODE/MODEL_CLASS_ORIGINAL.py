@@ -77,7 +77,7 @@ class Classifier():
             self.visualizeSaliencyMaps = visualizeSaliencyMaps_recon
             self.visualizeLabelGrids = False
             self.visualizePredictionGrids = visualizePredictionGrids_recon
-            self.dir_results = dir_recon_results
+            self.dir_results = dir_recon_inputData
             self.dir_features = dir_recon_features
             self.dir_saliencyMaps = dir_recon_saliencyMaps
             self.dir_visuals_saliencyMaps = dir_recon_visuals_saliencyMaps
@@ -207,6 +207,17 @@ class Classifier():
         else: 
             return predictions.tolist()
     
+    #Classify WSI, that had component blocks classified, according to specified threshold of allowable malignant blocks
+    def classifyWSI(self, sampleNames, blockSampleNames, blockLabels, blockPredictions, blockPredictionsFusion): 
+        sampleLabels, samplePredictions, samplePredictionsFusion, sampleBlockIndices = [], [], [], []
+        for sampleIndex, sampleName in enumerate(sampleNames):
+            blockIndices = np.where(blockSampleNames == sampleName)[0]
+            sampleBlockIndices.append(blockIndices)
+            if len(blockLabels) > 0: sampleLabels.append((np.mean(blockLabels[blockIndices]) >= thresholdWSI)*1)
+            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
+            if self.fusionMode: samplePredictionsFusion.append((np.mean(blockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
+        return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), sampleBlockIndices
+    
     #Perform cross-validation
     def crossValidation(self):
         
@@ -268,38 +279,25 @@ class Classifier():
         foldsBlockPredictions = np.asarray(foldsBlockPredictions)
         foldsBlockPredictionsFusion = np.asarray(foldsBlockPredictionsFusion)
         
-        #Save results to disk
-        dataPrintout, dataPrintoutNames = [foldsBlockNames, foldsLabels, foldsBlockPredictions], ['Names', 'Labels', 'Raw Predictions']
+        #Classify WSI
+        foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, _ = self.classifyWSI(foldsSampleNames, foldsBlockSampleNames, foldsLabels, foldsBlockPredictions, foldsBlockPredictionsFusion)
+        
+        #Evaluate per-sample results
+        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, foldsBlockSampleNames, foldsBlockNames, foldsLabels, foldsBlockPredictions, foldsBlockPredictionsFusion, foldsBlockLocations)
+    
+    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, blockSampleNames, blockNames, blockLabels, blockPredictions, blockPredictionsFusion, blockLocations):
+        
+        #Save block results to disk
+        if len(blockLabels) > 0: dataPrintout, dataPrintoutNames = [blockNames, blockLabels, blockPredictions], ['Names', 'Labels', 'Predictions']
+        else: dataPrintout, dataPrintoutNames = [blockNames, blockPredictions], ['Names', 'Predictions']
         if self.fusionMode: 
-            dataPrintout.append(foldsBlockPredictionsFusion)
+            dataPrintout.append(blockPredictionsFusion)
             dataPrintoutNames.append('Fusion Predictions')
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_blocks.csv', index=False)
         
-        #Evaluate per-block results
-        computeClassificationMetrics(foldsLabels, foldsBlockPredictions, self.dir_results, '_blocks_initial')
-        if self.fusionMode: computeClassificationMetrics(foldsLabels, foldsBlockPredictionsFusion, self.dir_results, '_blocks_fusion')
-    
-        #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion = [], [], []
-        for foldsSampleIndex, sampleName in enumerate(foldsSampleNames):
-            blockIndices = np.where(foldsBlockSampleNames == sampleName)[0]
-            foldsSampleLabels.append((np.mean(foldsLabels[blockIndices]) >= thresholdWSI)*1)
-            foldsSamplePredictions.append((np.mean(foldsBlockPredictions[blockIndices]) >= thresholdWSI)*1)
-            if self.fusionMode: foldsSamplePredictionsFusion.append((np.mean(foldsBlockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
-        
-        #Convert list of WSI labels/predictions to arrays
-        foldsSampleLabels = np.asarray(foldsSampleLabels)
-        foldsSamplePredictions = np.asarray(foldsSamplePredictions)
-        foldsSamplePredictionsFusion = np.asarray(foldsSamplePredictionsFusion)
-        
-        #Evaluate per-sample results
-        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, foldsBlockSampleNames, foldsLabels, foldsBlockPredictions, foldsBlockPredictionsFusion, foldsBlockLocations)
-
-    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, blockSampleNames, blockLabels, blockPredictions, blockPredictionsFusion, blockLocations):
-        
-        #Save results to disk
+        #Save WSI results to disk
         if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
         else: dataPrintout, dataPrintoutNames = [sampleNames, samplePredictions], ['Names', 'Predictions']
         if self.fusionMode: 
@@ -308,6 +306,12 @@ class Classifier():
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_WSI.csv', index=False)
+        
+        #Evaluate block results if labels/predictions are available
+        if len(blockLabels) > 0 and len(blockPredictions) > 0: 
+            if len(blockLabels) != len(blockPredictions): sys.exit('\nError - The number of block labels does not match the number of predictions.\n')
+            computeClassificationMetrics(blockLabels, blockPredictions, self.dir_results, '_blocks_initial')
+            if self.fusionMode: computeClassificationMetrics(blockLabels, blockPredictionsFusion, self.dir_results, '_blocks_fusion')
         
         #Evaluate WSI results if labels/predictions are available
         if len(sampleLabels) > 0 and len(samplePredictions) > 0: 
@@ -404,8 +408,8 @@ class Classifier():
         self.model_XGBClassifier.load_model(dir_classifier_models + 'model_XGBClassifier.json')
         self.model_XGBClassifier._Booster.set_param({'device': self.device})
         
-    #Classify all sample WSI to generate data for reconstruction model
-    def classifyReconWSI(self):
+    #Generate data for reconstruction model
+    def generateReconData(self):
         
         #Place data on the GPU if able
         dataInput = np.asarray(self.blockFeatures.astype(np.float32))
@@ -422,20 +426,11 @@ class Classifier():
             torch.cuda.empty_cache() 
             cp._default_memory_pool.free_all_blocks()
         
-        #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        samplePredictions, samplePredictionsFusion, sampleBlockIndices = [], [], []
-        for sampleIndex, sampleName in enumerate(self.sampleNames):
-            blockIndices = np.where(self.blockSampleNames == sampleName)[0]
-            sampleBlockIndices.append(blockIndices)
-            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
-            if self.fusionMode: samplePredictionsFusion.append((np.mean(blockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
-        
-        #Convert list of WSI labels/predictions to arrays
-        samplePredictions = np.asarray(samplePredictions)
-        samplePredictionsFusion = np.asarray(samplePredictionsFusion)
-        
+        #Classify WSI
+        _, samplePredictions, samplePredictionsFusion, sampleBlockIndices = self.classifyWSI(self.sampleNames, self.blockSampleNames, [], blockPredictions, blockPredictionsFusion)
+
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.blockSampleNames, [], blockPredictions, blockPredictionsFusion, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.blockSampleNames, self.blockNames, [], blockPredictions, blockPredictionsFusion, self.blockLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:

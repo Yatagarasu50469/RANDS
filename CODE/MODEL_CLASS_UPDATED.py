@@ -60,7 +60,7 @@ class Classifier():
         elif dataType == 'recon':
             self.visualizeLabelGrids = False
             self.visualizePredictionGrids = visualizePredictionGrids_recon
-            self.dir_results = dir_recon_results
+            self.dir_results = dir_recon_inputData
             self.dir_visuals_labelGrids = None
             self.dir_visuals_overlaidLabelGrids = None
             self.dir_visuals_predictionGrids = dir_recon_visuals_predictionGrids
@@ -89,12 +89,21 @@ class Classifier():
         #Evaluate per-block results
         computeClassificationMetrics(self.blockLabels, blockPredictions, self.dir_results, '_blocks_')
     
-        #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        sampleLabels = np.asarray([(np.mean(self.blockLabels[np.where(self.blockSampleNames == sampleName)[0]]) >= thresholdWSI)*1 for sampleName in sampleNames])
-        samplePredictions = np.asarray([(np.mean(blockPredictions[np.where(self.blockSampleNames == sampleName)[0]]) >= thresholdWSI)*1 for sampleName in sampleNames])
+        #Classify WSI
+        sampleLabels, samplePredictions, _ = self.classifyWSI(sampleNames, self.blockSampleNames, self.blockLabels, blockPredictions)
         
         #Evaluate per-sample results
         self.processResultsWSI(sampleNames, WSIFilenames, sampleLabels, samplePredictions, self.blockSampleNames, self.blockLabels, blockPredictions, self.blockLocations)
+    
+    #Classify WSI, that had component blocks classified, according to specified threshold of allowable malignant blocks
+    def classifyWSI(self, sampleNames, blockSampleNames, blockLabels, blockPredictions): 
+        sampleLabels, samplePredictions, sampleBlockIndices = [], [], []
+        for sampleIndex, sampleName in enumerate(sampleNames):
+            blockIndices = np.where(blockSampleNames == sampleName)[0]
+            sampleBlockIndices.append(blockIndices)
+            if len(blockLabels) > 0: sampleLabels.append((np.mean(blockLabels[blockIndices]) >= thresholdWSI)*1)
+            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
+        return np.asarray(sampleLabels), np.asarray(samplePredictions), sampleBlockIndices
     
     #Process the WSI classification results
     def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, blockSampleNames, blockLabels, blockPredictions, blockLocations):
@@ -150,24 +159,27 @@ class Classifier():
                     imageWSI_Predictions = cv2.addWeighted(imageWSI, 1.0, gridOverlay_Predictions, overlayWeight, 0.0)
                     _ = exportImage(self.dir_visuals_overlaidPredictionGrids+'overlaid_predictionsGrid_'+sampleName, imageWSI_Predictions, exportLossless)
 
-    #Classify all sample WSI to generate data for reconstruction model
-    def classifyReconWSI(self):
+    #Generate data for reconstruction model
+    def generateReconData(self):
+        
+        #Place data on the GPU if able
+        dataInput = np.asarray(self.blockFeatures.astype(np.float32))
+        if len(gpus) > 0: dataInput = cp.asarray(dataInput)
         
         #Classify blocks
-        blockPredictions = None#self.predict(dataInput)
+        blockPredictions = np.asarray(self.predict(dataInput))
         
-        #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        samplePredictions, sampleBlockIndices = [], [], []
-        for sampleIndex, sampleName in enumerate(self.sampleNames):
-            blockIndices = np.where(self.blockSampleNames == sampleName)[0]
-            sampleBlockIndices.append(blockIndices)
-            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
+        #Clear the XGBClassifier model and data on GPU
+        del self.model_XGBClassifier, dataInput
+        if len(gpus) > 0: 
+            torch.cuda.empty_cache() 
+            cp._default_memory_pool.free_all_blocks()
         
-        #Convert list of WSI labels/predictions to arrays
-        samplePredictions = np.asarray(samplePredictions)
+        #Classify the WSI
+        _, samplePredictions, sampleBlockIndices = self.classifyWSI(self.sampleNames, self.blockSampleNames, [], blockPredictions)
         
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, self.blockSampleNames, [], blockPredictions, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, self.blockSampleNames, self.blockNames, [], blockPredictions, self.blockLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:

@@ -77,7 +77,7 @@ if classifierRecon:
     modelClassifier_recon.loadClassifier()
     
     #Classify all WSI to generate data for the reconstruction model
-    modelClassifier_recon.classifyReconWSI()
+    modelClassifier_recon.generateReconData()
     
     #Clean RAM of larger object(s)
     del modelClassifier_recon
