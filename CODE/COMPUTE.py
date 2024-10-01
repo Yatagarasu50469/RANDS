@@ -53,7 +53,3 @@ if parallelization:
     else: numberCPUS = availableThreads
     if numberCPUS <= 1: parallelization = False
 if not parallelization: numberCPUS = 1
-
-#Reset/startup ray
-resetRay(numberCPUS)
-

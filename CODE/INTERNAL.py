@@ -2,19 +2,6 @@
 #INTERNAL
 #==================================================================
 
-#Indicate and setup the destination folder for results of this configuration
-dir_results_final = './RESULTS_'+os.path.splitext(os.path.basename(configFileName).split('_')[1])[0]
-
-#If the folder already exists, prevent name collisions by appending a novel value to it
-if os.path.exists(dir_results_final):
-    destinationNameValue = 0
-    dir_results_final_base = copy.deepcopy(dir_results_final)
-    while True:
-        dir_results_final = dir_results_final_base + '_' + str(destinationNameValue)
-        if not os.path.exists(dir_results_final): break
-        destinationNameValue += 1
-
-
 #Data input directories and file locations
 #=============================================================================
 
@@ -26,9 +13,7 @@ dir_classifier_models = dir_results + 'MODELS' + os.path.sep
 #Block classification
 dir_blocks_data = dir_data + 'BLOCKS' + os.path.sep
 dir_blocks_inputBlocks = dir_blocks_data + 'INPUT_BLOCKS' + os.path.sep
-file_blocks_metadataBlocks = dir_blocks_inputBlocks + 'metadata_blocks.csv'
 dir_blocks_inputWSI = dir_blocks_data + 'INPUT_WSI' + os.path.sep
-file_blocks_metadataWSI = dir_blocks_inputWSI + 'metadata_WSI.csv'
 
 dir_blocks_features = dir_blocks_data + 'OUTPUT_FEATURES' + os.path.sep
 dir_blocks_salicencyMaps = dir_blocks_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
@@ -40,160 +25,164 @@ dir_blocks_visuals_labelGrids = dir_blocks_visuals + 'LABEL_GRIDS' + os.path.sep
 dir_blocks_visuals_overlaidLabelGrids = dir_blocks_visuals + 'OVERLAID_LABEL_GRIDS' + os.path.sep
 
 dir_blocks_results = dir_results + 'BLOCKS' + os.path.sep
-dir_blocks_results_labelGrids = dir_blocks_results + 'LABEL_GRIDS' + os.path.sep
-dir_blocks_results_overlaidLabelGrids = dir_blocks_results + 'OVERLAID_LABEL_GRIDS' + os.path.sep
+dir_blocks_results_visuals = dir_blocks_results + 'VISUALS' + os.path.sep
+dir_blocks_visuals_predictionGrids = dir_blocks_results_visuals + 'PREDICTION_GRIDS' + os.path.sep
+dir_blocks_visuals_overlaidPredictionGrids = dir_blocks_results_visuals + 'OVERLAID_PREDICTION_GRIDS' + os.path.sep
+dir_blocks_visuals_fusionGrids = dir_blocks_results_visuals + 'FUSION_GRIDS' + os.path.sep
+dir_blocks_visuals_overlaidFusionGrids = dir_blocks_results_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
 
-#WSI classification
-dir_WSI_data = dir_data + 'WSI' + os.path.sep
-dir_WSI_inputs = dir_WSI_data + 'INPUT_WSI' + os.path.sep
-file_WSI_metadataWSI = dir_WSI_inputs + 'metadata_WSI.csv'
-
-dir_WSI_blocks = dir_WSI_data + 'OUTPUT_BLOCKS' + os.path.sep
-dir_WSI_features = dir_WSI_data + 'OUTPUT_FEATURES' + os.path.sep
-dir_WSI_saliencyMaps = dir_WSI_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
-
-dir_WSI_visuals = dir_WSI_data + 'OUTPUT_VISUALS' + os.path.sep
-dir_WSI_visuals_saliencyMaps = dir_WSI_visuals + 'SALIENCY_MAPS' + os.path.sep
-dir_WSI_visuals_overlaidSaliencyMaps = dir_WSI_visuals + 'OVERLAID_SALIENCY_MAPS' + os.path.sep
-
-dir_WSI_results = dir_results + 'WSI' + os.path.sep
-dir_WSI_results_labelGrids = dir_WSI_results + 'LABEL_GRIDS' + os.path.sep
-dir_WSI_results_overlaidLabelGrids = dir_WSI_results + 'OVERLAID_LABEL_GRIDS' + os.path.sep
-
-#Reconstruction model input data classification
+#Reconstruction
 dir_recon_data = dir_data + 'RECON' + os.path.sep
-dir_recon_inputData = dir_recon_data + 'INPUT_RECON' + os.path.sep
-dir_recon_visuals_inputData = dir_recon_data + 'INPUT_VISUALS' + os.path.sep
+dir_recon_inputWSI = dir_recon_data + 'INPUT_WSI' + os.path.sep
+dir_recon_blocks = dir_recon_data + 'OUTPUT_BLOCKS' + os.path.sep
+dir_recon_features = dir_recon_data + 'OUTPUT_FEATURES' + os.path.sep
+dir_recon_saliencyMaps = dir_recon_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
+dir_recon_inputData = dir_recon_data + 'OUTPUT_INPUT_DATA' + os.path.sep
+
+dir_recon_visuals = dir_recon_data + 'OUTPUT_VISUALS' + os.path.sep
+dir_recon_visuals_inputData = dir_recon_visuals + 'INPUT_DATA' + os.path.sep
+dir_recon_visuals_saliencyMaps = dir_recon_visuals + 'SALIENCY_MAPS' + os.path.sep
+dir_recon_visuals_overlaidSaliencyMaps = dir_recon_visuals + 'OVERLAID_SALIENCY_MAPS' + os.path.sep
+dir_recon_visuals_predictionGrids = dir_recon_visuals + 'PREDICTION_GRIDS' + os.path.sep
+dir_recon_visuals_overlaidPredictionGrids = dir_recon_visuals + 'OVERLAID_PREDICTION_GRIDS' + os.path.sep
+dir_recon_visuals_fusionGrids = dir_recon_visuals + 'FUSION_GRIDS' + os.path.sep
+dir_recon_visuals_overlaidFusionGrids = dir_recon_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
 
 dir_recon_results = dir_results + 'RECON' + os.path.sep
 dir_recon_results_train = dir_recon_results + 'TRAIN' + os.path.sep
 dir_recon_results_test = dir_recon_results + 'TEST' + os.path.sep
 
+#Refresh/setup internal directories only in the main executing thread
+if __name__ == '__main__': 
 
-#If folders do not exist, but their use is enabled, exit the program
-#=============================================================================
+    #Define an ultimate final location for the results
+    #=============================================================================
 
-#Block classification
-if not os.path.exists(dir_data): sys.exit('\nError - Required folder: ' + dir_data + ' does not exist.')
-if not os.path.exists(dir_blocks_data) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_data + ' does not exist.')
-if not os.path.exists(dir_blocks_inputBlocks) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputBlocks + ' does not exist.')
-if not os.path.exists(dir_blocks_inputWSI) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputWSI + ' does not exist.')
+    #Indicate and setup the destination folder for results of this configuration
+    dir_results_final = './RESULTS_'+os.path.splitext(os.path.basename(configFileName).split('_')[1])[0]
 
-#WSI classification
-if not os.path.exists(dir_WSI_data) and classifierWSI: sys.exit('\nError - Required folder: ' + dir_WSI_data + ' does not exist.')
-if not os.path.exists(dir_WSI_inputs) and classifierWSI: sys.exit('\nError - Required folder: ' + dir_WSI_inputs + ' does not exist.')
+    #If the folder already exists, prevent name collisions by appending a novel value to it
+    if os.path.exists(dir_results_final):
+        destinationNameValue = 0
+        dir_results_final_base = copy.deepcopy(dir_results_final)
+        while True:
+            dir_results_final = dir_results_final_base + '_' + str(destinationNameValue)
+            if not os.path.exists(dir_results_final): break
+            destinationNameValue += 1
 
-#Reconstruction model input data classification
-if (not classifierWSI and classifierRecon) and ((len(glob.glob(dir_WSI_blocks+'*.npy'))==0) or (len(glob.glob(dir_WSI_features+'*.npy'))==0) or (fusionMode_WSI and (len(glob.glob(dir_WSI_saliencyMaps+'*.npy'))==0))): sys.exit('\nError - classifierRecon requires files generated by classifierWSI that are unavailable.')
+    #If folders do not exist, but their use is enabled, exit the program
+    #=============================================================================
 
+    #Block classification
+    if not os.path.exists(dir_data): sys.exit('\nError - Required folder: ' + dir_data + ' does not exist.')
+    if not os.path.exists(dir_blocks_data) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_data + ' does not exist.\n')
+    if not os.path.exists(dir_blocks_inputBlocks) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputBlocks + ' does not exist.\n')
+    if not os.path.exists(dir_blocks_inputWSI) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputWSI + ' does not exist.\n')
 
-#If a task is diabled, then overwrites should be disabled to prevent overwrite of existing data
-#If for a given task, file overwrites are not enabled, and the needed files do not exist, then enable the relevant overwrite(s)
-#=============================================================================
+    #Reconstruction
+    if not os.path.exists(dir_recon_data) and classifierRecon: sys.exit('\nError - Required folder: ' + dir_recon_data + ' does not exist.\n')
+    if not os.path.exists(dir_recon_inputWSI) and classifierRecon: sys.exit('\nError - Required folder: ' + dir_recon_inputWSI + ' does not exist.\n')
 
-if (classifierTrain or classifierExport):
-    if not overwrite_blocks_features and len(glob.glob(dir_blocks_features+'*.npy'))==0: overwrite_blocks_features = True    
+    #If a task is diabled, then overwrites should be disabled to prevent overwrite of existing data
+    #If for a given task, file overwrites are not enabled, and the needed files do not exist, then enable the relevant overwrite(s)
+    #=============================================================================
 
-if classifierTrain:
-    if not overwrite_blocks_saliencyMaps and fusionMode_blocks and len(glob.glob(dir_blocks_salicencyMaps+'*.npy'))==0: overwrite_blocks_saliencyMaps = True
-else:
-    overwrite_blocks_features = False
-    overwrite_blocks_saliencyMaps = False
+    if (classifierTrain or classifierExport):
+        if not overwrite_blocks_features and len(glob.glob(dir_blocks_features+'*.npy'))==0: overwrite_blocks_features = True    
 
-if classifierWSI:
-    if not overwrite_WSI_blocks and len(glob.glob(dir_WSI_blocks+'*.npy'))==0: overwrite_WSI_blocks = True
-    if not overwrite_WSI_features and len(glob.glob(dir_WSI_features+'*.npy'))==0: overwrite_WSI_features = True
-    if not overwrite_WSI_saliencyMaps and fusionMode_WSI and len(glob.glob(dir_WSI_saliencyMaps+'*.npy'))==0: overwrite_WSI_saliencyMaps = True
-else:
-    overwrite_WSI_blocks = False
-    overwrite_WSI_features = False
-    overwrite_WSI_saliencyMaps = False
+    if classifierTrain:
+        if not overwrite_blocks_saliencyMaps and fusionMode_blocks and len(glob.glob(dir_blocks_salicencyMaps+'*.npy'))==0: overwrite_blocks_saliencyMaps = True
+    else:
+        overwrite_blocks_features = False
+        overwrite_blocks_saliencyMaps = False
 
-if not classifierWSI and classifierRecon: 
-    if not overwrite_recon_blocks and len(glob.glob(dir_WSI_blocks+'*.npy'))==2: overwrite_recon_blocks = True
-    if not overwrite_recon_features and len(glob.glob(dir_WSI_features+'*.npy'))==1: overwrite_recon_features = True
-    if not overwrite_recon_saliencyMaps and fusionMode_WSI and len(glob.glob(dir_WSI_saliencyMaps+'*.npy'))==1: overwrite_recon_saliencyMaps = True
-elif not classifierRecon:
-    overwrite_recon_blocks = False
-    overwrite_recon_features = False
-    overwrite_recon_saliencyMaps = False
+    if classifierRecon:
+        if not overwrite_recon_blocks and len(glob.glob(dir_recon_blocks+'*.npy'))==0: overwrite_recon_blocks = True
+        if not overwrite_recon_features and len(glob.glob(dir_recon_features+'*.npy'))==0: overwrite_reocn_features = True
+        if not overwrite_recon_saliencyMaps and fusionMode_recon and len(glob.glob(dir_recon_saliencyMaps+'*.npy'))==0: overwrite_recon_saliencyMaps = True
+    else:
+        overwrite_recon_blocks = False
+        overwrite_recon_features = False
+        overwrite_recon_saliencyMaps = False
 
+    #Clear files/folders that are to be overwritten or impacted
+    #=============================================================================
 
-#Clear files/folders that are to be overwritten
-#=============================================================================
-
-#Block classification
-if classifierTrain: 
-    if os.path.exists(dir_blocks_results): shutil.rmtree(dir_blocks_results)
-    if classifierExport and os.path.exists(dir_classifier_models): shutil.rmtree(dir_classifier_models)
-    if overwrite_blocks_features and os.path.exists(dir_blocks_features): shutil.rmtree(dir_blocks_features)
-    if overwrite_blocks_saliencyMaps: 
-        if os.path.exists(dir_blocks_salicencyMaps): shutil.rmtree(dir_blocks_salicencyMaps)
-        if os.path.exists(dir_blocks_visuals_saliencyMaps): shutil.rmtree(dir_blocks_visuals_saliencyMaps)
-        if os.path.exists(dir_blocks_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_blocks_visuals_overlaidSaliencyMaps)
-    if visualizeLabelGrids_blocks:
+    #Block classification
+    if classifierTrain: 
+        if os.path.exists(dir_blocks_results): shutil.rmtree(dir_blocks_results)
+        if classifierExport and os.path.exists(dir_classifier_models): shutil.rmtree(dir_classifier_models)
+        if overwrite_blocks_features and os.path.exists(dir_blocks_features): shutil.rmtree(dir_blocks_features)
+        if overwrite_blocks_saliencyMaps: 
+            if os.path.exists(dir_blocks_salicencyMaps): shutil.rmtree(dir_blocks_salicencyMaps)
+            if os.path.exists(dir_blocks_visuals_saliencyMaps): shutil.rmtree(dir_blocks_visuals_saliencyMaps)
+            if os.path.exists(dir_blocks_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_blocks_visuals_overlaidSaliencyMaps)
+        
         if os.path.exists(dir_blocks_visuals_labelGrids): shutil.rmtree(dir_blocks_visuals_labelGrids)
         if os.path.exists(dir_blocks_visuals_overlaidLabelGrids): shutil.rmtree(dir_blocks_visuals_overlaidLabelGrids)
-
-#WSI classification
-if classifierWSI:
-    if os.path.exists(dir_WSI_results): shutil.rmtree(dir_WSI_results)
-    if overwrite_WSI_blocks and os.path.exists(dir_WSI_blocks): shutil.rmtree(dir_WSI_blocks)
-    if overwrite_WSI_features and os.path.exists(dir_WSI_features): shutil.rmtree(dir_WSI_features)
-    if overwrite_WSI_saliencyMaps: 
-        if os.path.exists(dir_WSI_saliencyMaps): shutil.rmtree(dir_WSI_saliencyMaps)
-        if os.path.exists(dir_WSI_visuals_saliencyMaps): shutil.rmtree(dir_WSI_visuals_saliencyMaps)
-        if os.path.exists(dir_WSI_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_WSI_visuals_overlaidSaliencyMaps)
-
-#Reconstruction model input data classification
-if classifierRecon:
-    if os.path.exists(dir_recon_results): shutil.rmtree(dir_recon_results)
-    if os.path.exists(dir_recon_data): shutil.rmtree(dir_recon_data)
-    if visualizeInputData_recon:
-        if os.path.exists(dir_recon_visuals_inputData): shutil.rmtree(dir_recon_visuals_inputData)
-
-
-#Create any required folders that do not exist
-#=============================================================================
-
-#Store directories to check and create
-checkDirectories = [dir_results]
-
-#Block classification
-checkDirectories += [dir_blocks_features, 
-                    dir_blocks_salicencyMaps,
-                    dir_blocks_visuals,
-                    dir_blocks_visuals_saliencyMaps,
-                    dir_blocks_visuals_overlaidSaliencyMaps,
-                    dir_blocks_visuals_labelGrids, 
-                    dir_blocks_visuals_overlaidLabelGrids,
-                    dir_classifier_models,
-                    dir_blocks_results,
-                    dir_blocks_results_labelGrids,
-                    dir_blocks_results_overlaidLabelGrids
-                   ]
-
-#WSI classification
-checkDirectories += [dir_WSI_blocks, 
-                    dir_WSI_features,
-                    dir_WSI_saliencyMaps,
-                    dir_WSI_visuals, 
-                    dir_WSI_visuals_saliencyMaps,
-                    dir_WSI_visuals_overlaidSaliencyMaps,
-                    dir_WSI_results, 
-                    dir_WSI_results_labelGrids,
-                    dir_WSI_results_overlaidLabelGrids
-                   ]
+        if os.path.exists(dir_blocks_visuals_predictionGrids): shutil.rmtree(dir_blocks_visuals_PredictionGrids)
+        if os.path.exists(dir_blocks_visuals_overlaidPredictionGrids): shutil.rmtree(dir_blocks_visuals_overlaidPredictionGrids)
+        if os.path.exists(dir_blocks_visuals_fusionGrids): shutil.rmtree(dir_blocks_visuals_fusionGrids)
+        if os.path.exists(dir_blocks_visuals_overlaidFusionGrids): shutil.rmtree(dir_blocks_visuals_overlaidFusionGrids)
         
-#Reconstruction model input data classification 
-checkDirectories += [dir_recon_data, 
-                    dir_recon_inputData,
-                    dir_recon_visuals_inputData,
-                    dir_recon_results,
-                    dir_recon_results_train,
-                    dir_recon_results_test
-                   ]
+    #Reconstruction
+    if classifierRecon:
+        if os.path.exists(dir_recon_results): shutil.rmtree(dir_recon_results)
+        if os.path.exists(dir_recon_inputData): shutil.rmtree(dir_recon_inputData)
+        if overwrite_recon_blocks and os.path.exists(dir_recon_blocks): shutil.rmtree(dir_recon_blocks)
+        if overwrite_recon_features and os.path.exists(dir_recon_features): shutil.rmtree(dir_recon_features)
+        if overwrite_recon_saliencyMaps: 
+            if os.path.exists(dir_recon_saliencyMaps): shutil.rmtree(dir_recon_saliencyMaps)
+            if os.path.exists(dir_recon_visuals_saliencyMaps): shutil.rmtree(dir_recon_visuals_saliencyMaps)
+            if os.path.exists(dir_recon_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_recon_visuals_overlaidSaliencyMaps)
+        
+        if os.path.exists(dir_recon_visuals_inputData): shutil.rmtree(dir_recon_visuals_inputData)
+        if os.path.exists(dir_recon_visuals_predictionGrids): shutil.rmtree(dir_recon_visuals_predictionGrids)
+        if os.path.exists(dir_recon_visuals_overlaidPredictionGrids): shutil.rmtree(dir_recon_visuals_overlaidPredictionGrids)
+        if os.path.exists(dir_recon_visuals_fusionGrids): shutil.rmtree(dir_recon_visuals_fusionGrids)
+        if os.path.exists(dir_recon_visuals_overlaidFusionGrids): shutil.rmtree(dir_recon_visuals_overlaidFusionGrids)
+        
+    #Create any required folders that do not exist
+    #=============================================================================
 
-#Generate any missing folders
-for directory in checkDirectories: 
-    if not os.path.exists(directory): os.makedirs(directory)
+    #Store directories to check and create
+    checkDirectories = [dir_results]
+
+    #Block classification
+    checkDirectories += [dir_blocks_features, 
+                        dir_blocks_salicencyMaps,
+                        dir_blocks_visuals,
+                        dir_blocks_visuals_saliencyMaps,
+                        dir_blocks_visuals_overlaidSaliencyMaps,
+                        dir_blocks_visuals_labelGrids, 
+                        dir_blocks_visuals_overlaidLabelGrids,
+                        dir_classifier_models,
+                        dir_blocks_results,
+                        dir_blocks_results_visuals, 
+                        dir_blocks_visuals_predictionGrids, 
+                        dir_blocks_visuals_overlaidPredictionGrids, 
+                        dir_blocks_visuals_fusionGrids, 
+                        dir_blocks_visuals_overlaidFusionGrids
+                       ]
+
+    #Reconstruction
+    checkDirectories += [dir_recon_blocks, 
+                        dir_recon_features,
+                        dir_recon_saliencyMaps,
+                        dir_recon_inputData, 
+                        dir_recon_visuals, 
+                        dir_recon_visuals_inputData,
+                        dir_recon_visuals_saliencyMaps,
+                        dir_recon_visuals_overlaidSaliencyMaps,
+                        dir_recon_visuals_predictionGrids, 
+                        dir_recon_visuals_overlaidPredictionGrids, 
+                        dir_recon_visuals_fusionGrids, 
+                        dir_recon_visuals_overlaidFusionGrids, 
+                        dir_recon_results, 
+                        dir_recon_results_train,
+                        dir_recon_results_test
+                       ]
+
+    #Generate any missing folders
+    for directory in checkDirectories: 
+        if not os.path.exists(directory): os.makedirs(directory)

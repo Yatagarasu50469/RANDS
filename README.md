@@ -6,8 +6,8 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       24 September 2024
-<b>VERSION:</b>        0.0.1
+<b>MODIFIED:</b>       1 October 2024
+<b>VERSION:</b>        0.0.2
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
 <b>FUNDING:</b>        Development of RANDS has been funded by and developed for NIH Grant 5R01EB033806
@@ -77,31 +77,42 @@
   |  |  |  |----->metadata_blocks.csv         #Block metadata for every lossless image in the directory
   |  |  |----->INPUT_WSI                      #Labeled WSI; the exact images INPUT_BLOCKS data was extracted from
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |  |----->metadata_WSI.csv            #WSI metadata for every image in the directory
   |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for block images
   |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for block images
   |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in block image classification tasks
+  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
   |  |  |  |----->LABEL_GRIDS                 #Ground-truth labels spatially visualized in grid form (Green->Benign, Red->Malignant)
+  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
   |  |  |  |----->OVERLAID_LABEL_GRIDS        #Label grids visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Predictions visualized on WSI
   |  |  |  |----->OVERLAID_SALIENCY_MAPS      #Saliency maps upsampled with bilinear interpolation and visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS            #Predictions visually visualized in grid form
   |  |  |  |----->SALIENCY_MAPS               #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
-  |  |----->RECON                             #Training/evaluation data for reconstruction model
-  |  |  |----->INPUT_RECON                    #Data extracted from all available WSI for use with the reconstruction model
-  |  |  |----->INPUT_VISUALS                  #Visualizations of WSI classification model predictions
-  |  |----->WSI                               #WSI of samples/sides not used in training/evaluating the block classifier
-  |  |  |----->INPUT_WSI                      #Labeled WSI
+  |  |----->RECON                             #Training/evaluation data for reconstruction model (all WSI, including those used for training the classifier)
+  |  |  |----->INPUT_WSI                      #WSI not used for training the classifier for use in the reconstruction model
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |----->OUTPUT_BLOCKS                  #Block images extracted from WSI and corresponding data
+  |  |  |----->OUTPUT_BLOCKS                  #Block images/data extracted from WSI
   |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for extracted block images
+  |  |  |----->OUTPUT_INPUT_DATA              #Resultant classifier data to be used as input data for the reconstruction model
   |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for extracted block images
-  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in WSI classification tasks
+  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in classification tasks
+  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
+  |  |  |  |----->INPUT_DATA                  #Classification model predictions; visualizations of input data for reconstruction model
+  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Predictions visualized on WSI
+  |  |  |  |----->OVERLAID_SALIENCY_MAPS      #Saliency maps upsampled with bilinear interpolation and visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS            #Predictions visually visualized in grid form
+  |  |  |  |----->SALIENCY_MAPS               #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
   |----->RESULTS                              #Results directory
   |  |----->BLOCKS                            #Block classification training/evaluation results
-  |  |  |----->LABEL_GRIDS                    #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
-  |  |  |----->OVERLAID_LABEL_GRIDS           #Label grids visualized on WSI
-  |  |  |----->predictions_<i>dataType</i>.csv       #Predicted per-block/WSI labels; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->VISUALS                        #Generated visuals for classification of blocks and their WSI
+  |  |  |  |----->FUSION_GRIDS                   #Fusion predictions visualized in grid form
+  |  |  |  |----->OVERLAID_FUSION_GRIDS          #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS      #Label grids visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS               #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
   |  |  |----->classReport_<i>dataType</i>.csv       #Classification report of common metrics; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
   |  |  |----->confusionMatrix_<i>dataType</i>.tif   #Confusion matrix visualization; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->predictions_<i>dataType</i>.csv       #Predicted per-block/WSI labels; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
   |  |  |----->summaryReport_<i>dataType</i>.csv     #Summary of additional result metrics;  <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
   |  |----->MODELS                            #Models exported by the program in ONNX (C# compatible) and more python-compatible forms
   |  |----->RECON                             #Reconstruction model results
@@ -209,7 +220,7 @@ Open a terminal or command prompt (**not as an administrator**) and run the comm
     $ pip3 install opencv-python datetime glob2 IPython pandas pathlib psutil matplotlib numpy numba pillow ray[serve]==2.33.0 scipy scikit-learn natsort scikit-image tqdm py7zr multivolumefile notebook==6.5.6 ipywidgets openpyxl xgboost grad-cam onnxmltools skl2onnx onnxruntime cupy-cuda12x
     $ pip3 install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
-Packages that may no longer be required
+Packages that may no longer be required (if there is a runtime error that references one of these packages, please notify the repository maintainer): 
 
     $ pip3 install aiorwlock sobol sobol-seq multiprocess pydot graphviz joblib
 
@@ -227,8 +238,7 @@ All critical parameters may be altered in a configuration file (Ex. ./CONFIG_0.p
 	|----->L2-1: Blocks
 	|  |----->L2-1-1: Original Classification Model
 	|  |----->L2-1-2: Updated Classification Model
-	|----->L2-2: WSI
-	|  |----->L2-2-1: Reconstruction
+	|----->L2-2: Reconstruction Data Generation
     L3: Reconstruction & Sampling
 	|----->L3-1: Training
 	|----->L3-2: Architecture

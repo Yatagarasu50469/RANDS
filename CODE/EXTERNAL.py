@@ -50,8 +50,12 @@ else:
     environmentalVariables["PYTHONWARNINGS"] = "ignore"
 
 #Load enivronmental variables into current runtime before other imports
-import os
+import logging, os, warnings
 for var, value in environmentalVariables.items(): os.environ[var] = value
+
+#Setup logging configuration and definitions
+exec(open("./CODE/LOGGING.py", encoding='utf-8').read())
+setupLogging()
 
 #IMPORTS
 #==================================================================
@@ -64,7 +68,6 @@ import contextlib
 import datetime
 import gc
 import glob
-import logging
 import math
 import matplotlib
 import matplotlib.pyplot as plt
@@ -87,9 +90,7 @@ import scipy
 import skimage
 import shutil
 import skl2onnx
-import sys
 import time
-import warnings
 
 from contextlib import nullcontext
 from IPython.core.debugger import set_trace as Tracer
@@ -97,7 +98,8 @@ from matplotlib import colors
 from matplotlib.pyplot import figure
 from numba import cuda
 from numba import jit
-from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
+from onnxmltools.convert import convert_xgboost
+from onnxmltools.convert.common import data_types
 from PIL import Image
 from pytorch_grad_cam import GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
@@ -126,11 +128,8 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, models
 from torchvision.transforms import v2
 from torchvision.transforms.functional import InterpolationMode
-    
-#Additional external definitions to import through execution
-exec(open("./CODE/LOGGING.py", encoding='utf-8').read())
 
-#LIBRARY AND WARNING SETUP
+#LIBRARY SETUP
 #==================================================================
 
 #Benchmarks algorithms and uses the fastest; only recommended if input sizes are consistent
@@ -139,9 +138,6 @@ exec(open("./CODE/LOGGING.py", encoding='utf-8').read())
 
 #Allow anomaly detection in training a PyTorch model; sometimes needed for debugging
 #torch.autograd.set_detect_anomaly(True)
-
-#Setup logging configuration
-setupLogging()
 
 #Setup deterministic behavior for torch (this alone does not affect CUDA-specific operations)
 if (manualSeedValue != -1): 

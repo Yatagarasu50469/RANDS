@@ -42,7 +42,7 @@ def programTitle(versionNum, configFileName):
     print((' ' * int((int(consoleColumns)-len(configHeader))//2))+configHeader)
     print(('=' * int(consoleColumns)))
 
-#Determine console size if applicable
+#Determine console size
 if systemOS != 'Windows':
     consoleRows, consoleColumns = os.popen('stty size', 'r').read().split()
 elif systemOS == 'Windows':
@@ -52,8 +52,3 @@ elif systemOS == 'Windows':
     (bufx, bufy, curx, cury, wattr, left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
     consoleRows = bottom-top
     consoleColumns = right-left
-
-#Clear the screen and print out the program header
-os.system('cls' if os.name=='nt' else 'clear')
-programTitle(versionNum, configFileName)
-

@@ -8,13 +8,14 @@
 ## Current Development
 
 **0.0.1**  Initial program framework   
-**0.0.2**  Image-to-image U-Net in-painting/reconstruction network   
-**0.0.3**  Sparse sampling simulation   
-**0.0.4**  Neural Image Compression CVAE network   
-**0.0.5**  Updated classifier   
+**0.0.2**  Export ResNet50 in ONNX, remove classifierWSI   
 
 ## Future Development
 
+**0.0.x**  Image-to-image U-Net in-painting/reconstruction network   
+**0.0.x**  Sparse sampling simulation   
+**0.0.x**  Neural Image Compression CVAE network   
+**0.0.x**  Updated classifier   
 **x.x.x**  Additional modality reconstruction   
 **x.x.x**  BiGAN integration   
 

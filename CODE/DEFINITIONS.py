@@ -11,17 +11,8 @@ def loadMetadata_blocks(filename):
     metadata = metadata.loc[metadata['Label'] != labelExclude]
     return [np.squeeze(data) for data in np.split(np.asarray(metadata), [1, 2, 4], -1)]
 
-#Load/synchronize data labeling, drop excluded rows, and extract relevant metadata
-def loadMetadata_WSI(filename):
-    metadata = pd.read_csv(filename, header=0, names=['Sample', 'Label'], converters={'Sample':str, 'Label':str})
-    metadata['Label'] = metadata['Label'].replace(labelsBenign, labelBenign)
-    metadata['Label'] = metadata['Label'].replace(labelsMalignant, labelMalignant)
-    metadata['Label'] = metadata['Label'].replace(labelsExclude, labelExclude)
-    metadata = metadata.loc[metadata['Label'] != labelExclude]
-    return [np.squeeze(data) for data in np.split(np.asarray(metadata), 2, -1)]
-
 #Extract blocks and determine associated metadata for referenced WSI files; abstraction allows for isolation of WSI data used for training the classifier
-def extractBlocks(WSIFilenames, blockBackgroundValue):
+def extractBlocks(WSIFilenames, blockBackgroundValue, dir_output):
     
     #Extract uniform, non-overlapping blocks from each WSI; may be too memory intensive and RW-bottlenecked to parallelize efficiently
     blockNames, blockFilenames, blockSampleNames, blockLocations, cropData, paddingData, shapeData = [], [], [], [], [], [], []
@@ -75,10 +66,10 @@ def extractBlocks(WSIFilenames, blockBackgroundValue):
         imageWSI_gray = imageWSI_gray.reshape(-1, imageWSI_gray.shape[2], imageWSI_gray.shape[3])
         
         #Setup directory to store blocks
-        dir_WSI_sampleBlocks = dir_WSI_blocks + 'S' + sampleName + os.path.sep
-        if not os.path.exists(dir_WSI_sampleBlocks): os.makedirs(dir_WSI_sampleBlocks)
+        dir_blocks = dir_output + 'S' + sampleName + os.path.sep
+        if not os.path.exists(dir_blocks): os.makedirs(dir_blocks)
         
-        #Record metadata for each block that has a specified percentage of foreground data and save each to disk
+        #Record metadata for each block that has a specified percentage of foreground data and save each to disk (always lossless)
         blockIndex = 0
         for rowNum in range(0, numBlocksRow):
             for colNum in range(0, numBlocksCol):
@@ -88,8 +79,7 @@ def extractBlocks(WSIFilenames, blockBackgroundValue):
                     blockName = sampleName+'_'+str(blockIndex)+'_'+str(locationRow)+'_'+str(locationColumn)
                     blockNames.append(blockName)
                     blockSampleNames.append(sampleName)
-                    blockFilenames.append(dir_WSI_sampleBlocks+'PS'+blockName+'.tif')
-                    exportImage(blockFilenames[-1], imageWSI[blockIndex])
+                    blockFilenames.append(exportImage(dir_blocks+'PS'+blockName, imageWSI[blockIndex], True))
                 blockIndex += 1
     
     return np.asarray(blockNames), np.asarray(blockFilenames), np.asarray(blockSampleNames), np.asarray(blockLocations), np.asarray(cropData), np.asarray(paddingData), np.asarray(shapeData)
@@ -122,23 +112,36 @@ def computeClassificationMetrics(labels, predictions, baseFilename, suffix):
     displayCM = ConfusionMatrixDisplay(confusionMatrix, display_labels=displayLabels)
     displayCM.plot(cmap='Blues')
     plt.tight_layout()
-    plt.savefig(baseFilename+'confusionMatrix' + suffix + '.tif')
+    if exportLossless: plt.savefig(baseFilename+'confusionMatrix' + suffix + '.tif')
+    else: plt.savefig(baseFilename+'confusionMatrix' + suffix + '.jpg')
     plt.close()
+    
+#Convert numpy array to contiguous tensor; issues with lambda functions when using multiprocessing
+def contiguousTensor(inputs):
+    return torch.from_numpy(inputs).contiguous()
+    
+#Rescale tensor; issues with lambda functions when using multiprocessing
+def rescaleTensor(inputs):
+    return inputs.to(dtype=torch.get_default_dtype()).div(255)
     
 #Generate a torch transform needed for preprocessing image data
 def generateTransform(resizeSize=[], rescale=False, normalize=False):
-    transform = [lambda inputs : torch.from_numpy(inputs).contiguous()]
+    transform = [contiguousTensor]
     if len(resizeSize) > 0: transform.append(v2.Resize(tuple(resizeSize)))
-    if rescale: transform.append(lambda inputs: inputs.to(dtype=torch.get_default_dtype()).div(255))
+    if rescale: transform.append(rescaleTensor)
     if normalize: transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
     return transforms.Compose(transform)
 
 #Export lossless RGB image data to disk
-def exportImage(filename, image):
-    if filename.split('.')[-1] == 'tif': writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), params=(cv2.IMWRITE_TIFF_COMPRESSION, 1))
-    elif filename.split('.')[-1] == 'jpg': writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [int(cv2.IMWRITE_JPEG_QUALITY), exportQuality])
-    else: sys.exit('\nError - Specified image output format has not been implemented.')
-    if not writeSuccess: sys.exit('\nError - Unable to write file: ', filename)
+def exportImage(filename, image, exportLosslessFlag):
+    if exportLosslessFlag: 
+        filename += '.tif'
+        writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), params=(cv2.IMWRITE_TIFF_COMPRESSION, 1))
+    else: 
+        filename += '.jpg'
+        writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [int(cv2.IMWRITE_JPEG_QUALITY), exportQuality])
+    if not writeSuccess: sys.exit('\nError - Unable to write file to disk; please verify directory location exists and has sufficient free space: ' + filename + '\n')
+    return filename
 
 #OpenCV does not output sharp corners with its rectangle method...unless it's filled in
 def rectangle(image, startPos, endPos, color):

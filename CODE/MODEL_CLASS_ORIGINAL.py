@@ -22,7 +22,7 @@ class DataPreprocessing_Classifier(Dataset):
 class Classifier():
     
     #Load blocks specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
-    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, WSILabels, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
+    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
         
         #Store input variables internally
         self.dataType = dataType
@@ -32,7 +32,6 @@ class Classifier():
         self.blockLocations = blockLocations
         self.sampleNames = sampleNames
         self.WSIFilenames = WSIFilenames
-        self.WSILabels = WSILabels
         self.cropData = cropData
         self.paddingData = paddingData
         self.shapeData = shapeData
@@ -40,14 +39,13 @@ class Classifier():
         self.blockLabels = blockLabels
         
         #Prepare data objects for obtaining/processing PyTorch model inputs
-        #Using num_workers>1 in the DataLoader objects causes bizzare semaphore/lock/descriptor issues/warnings; still appears to work, but keeping to 1 for safety
         self.device = f"cuda:{gpus[-1]}" if len(gpus) > 0 else "cpu"
         self.torchDevice = torch.device(self.device)
         self.blockData = DataPreprocessing_Classifier(self.blockFilenames, resizeSize_blocks)
-        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=1, shuffle=False, pin_memory=True)
+        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
         self.numBlockData = len(self.blockDataloader)
         self.WSIData = DataPreprocessing_Classifier(self.WSIFilenames, resizeSize_WSI)
-        self.WSIDataloader = DataLoader(self.WSIData, batch_size=batchsizeClassifier, num_workers=1, shuffle=False, pin_memory=True)
+        self.WSIDataloader = DataLoader(self.WSIData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
         self.numWSIData = len(self.WSIDataloader)
         
         #Set default cuda device for XGBClassifier input data
@@ -55,9 +53,12 @@ class Classifier():
         
         #Specify internal object data/directories according to data type
         if dataType == 'blocks':
+            self.fusionMode = fusionMode_blocks
             self.overwrite_features = overwrite_blocks_features
             self.overwrite_saliencyMaps = overwrite_blocks_saliencyMaps
             self.visualizeSaliencyMaps = visualizeSaliencyMaps_blocks
+            self.visualizeLabelGrids = visualizeLabelGrids_blocks
+            self.visualizePredictionGrids = visualizePredictionGrids_blocks
             self.dir_results = dir_blocks_results
             self.dir_features = dir_blocks_features
             self.dir_saliencyMaps = dir_blocks_salicencyMaps
@@ -65,159 +66,141 @@ class Classifier():
             self.dir_visuals_overlaidSaliencyMaps = dir_blocks_visuals_overlaidSaliencyMaps
             self.dir_visuals_labelGrids = dir_blocks_visuals_labelGrids
             self.dir_visuals_overlaidLabelGrids = dir_blocks_visuals_overlaidLabelGrids
-            self.dir_results_labelGrids = dir_blocks_results_labelGrids
-            self.dir_results_overlaidLabelGrids = dir_blocks_results_overlaidLabelGrids
-            self.visualizeLabelGrids = visualizeLabelGrids_blocks
-            self.visualizePredictionGrids = visualizePredictionGrids_blocks
-        elif 'WSI' in dataType or dataType == 'recon':
-            if dataType == 'WSI_WSI':
-                self.overwrite_features = overwrite_WSI_features
-                self.overwrite_saliencyMaps = overwrite_WSI_saliencyMaps
-            elif dataType == 'WSI_blocks':
-                self.overwrite_features = overwrite_recon_features
-                self.overwrite_saliencyMaps = overwrite_recon_saliencyMaps
-            self.dir_results = dir_WSI_results
-            self.dir_features = dir_WSI_features
-            self.dir_saliencyMaps = dir_WSI_saliencyMaps
-            self.dir_visuals_saliencyMaps = dir_WSI_visuals_saliencyMaps
-            self.dir_visuals_overlaidSaliencyMaps = dir_WSI_visuals_overlaidSaliencyMaps
-            self.dir_results_labelGrids = dir_WSI_results_labelGrids
-            self.dir_results_overlaidLabelGrids = dir_WSI_results_overlaidLabelGrids
-            self.visualizeSaliencyMaps = visualizeSaliencyMaps_WSI
-            self.visualizeLabelGrids = False
-            self.visualizePredictionGrids = visualizePredictionGrids_WSI
-        else:
-            sys.exit('\nError - Unknown data type used when creating classifier object.')
-        
-        #Compute or load/combine features and saliency maps
-        if (dataType == 'blocks') or ('WSI' in dataType):
-            self.computeFeatures()
-            if (dataType == 'blocks' and fusionMode_blocks) or ('WSI' in dataType and fusionMode_WSI): self.computeSalicencyMaps()
+            self.dir_visuals_predictionGrids = dir_blocks_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_blocks_visuals_overlaidPredictionGrids
+            self.dir_visuals_fusionGrids = dir_blocks_visuals_fusionGrids
+            self.dir_visuals_overlaidFusionGrids = dir_blocks_visuals_overlaidFusionGrids
         elif dataType == 'recon':
-            blockFeatures_WSI_blocks = np.load(self.dir_features + 'blockFeatures_WSI_blocks.npy', allow_pickle=True)
-            blockFeatures_WSI_WSI = np.load(self.dir_features + 'blockFeatures_WSI_WSI.npy', allow_pickle=True)
-            self.blockFeatures = np.concatenate([blockFeatures_WSI_blocks, blockFeatures_WSI_WSI])
-            np.save(dir_recon_inputData + 'blockFeatures', self.blockFeatures)
-            del blockFeatures_WSI_WSI, blockFeatures_WSI_blocks
-            if fusionMode_WSI:
-                blockWeights_WSI_blocks = np.load(self.dir_saliencyMaps + 'blockWeights_WSI_blocks.npy', allow_pickle=True)
-                blockWeights_WSI_WSI = np.load(self.dir_saliencyMaps + 'blockWeights_WSI_WSI.npy', allow_pickle=True)
-                self.blockWeights = np.concatenate([blockWeights_WSI_blocks, blockWeights_WSI_WSI])
-                np.save(dir_recon_inputData + 'blockWeights', self.blockWeights)
-                del blockWeights_WSI_WSI, blockWeights_WSI_blocks
+            self.fusionMode = fusionMode_recon
+            self.overwrite_features = overwrite_recon_features
+            self.overwrite_saliencyMaps = overwrite_recon_saliencyMaps
+            self.visualizeSaliencyMaps = visualizeSaliencyMaps_recon
+            self.visualizeLabelGrids = False
+            self.visualizePredictionGrids = visualizePredictionGrids_recon
+            self.dir_results = dir_recon_results
+            self.dir_features = dir_recon_features
+            self.dir_saliencyMaps = dir_recon_saliencyMaps
+            self.dir_visuals_saliencyMaps = dir_recon_visuals_saliencyMaps
+            self.dir_visuals_overlaidSaliencyMaps = dir_recon_visuals_overlaidSaliencyMaps
+            self.dir_visuals_labelGrids = None
+            self.dir_visuals_overlaidLabelGrids = None
+            self.dir_visuals_predictionGrids = dir_recon_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_recon_visuals_overlaidPredictionGrids
+            self.dir_visuals_fusionGrids = dir_recon_visuals_fusionGrids
+            self.dir_visuals_overlaidFusionGrids = dir_recon_visuals_overlaidFusionGrids
+        else:
+            sys.exit('\nError - Unknown data type used when creating classifier object.\n')
+        
+        #Extract or load features for the indicated block files
+        if self.overwrite_features: self.computeFeatures()
+        else: self.blockFeatures = np.load(self.dir_features + 'blockFeatures'+self.suffix+'.npy', allow_pickle=True)
+        
+        #Extract or load saliency map data for the indicated block files
+        if self.fusionMode: 
+            if self.overwrite_saliencyMaps: self.computeSalicencyMaps()
+            else: self.blockWeights = np.load(self.dir_saliencyMaps + 'blockWeights'+self.suffix+'.npy', allow_pickle=True)
         
     def computeFeatures(self):
         
-        #Extract or load features for the indicated block files
-        if self.overwrite_features: 
-        
-            #Load pretrained ResNet50 model and set to evaluation mode
-            model_ResNet = models.resnet50(weights=weightsResNet).to(self.torchDevice)
-            _ = model_ResNet.train(False)
+        #Load pretrained ResNet50 model and set to evaluation mode
+        model_ResNet = models.resnet50(weights=weightsResNet).to(self.torchDevice)
+        _ = model_ResNet.train(False)
 
-            #Extract features for each batch of sample block images
-            self.blockFeatures = []
-            for data in tqdm(self.blockDataloader, total=self.numBlockData, desc='Feature Determination', leave=True, ascii=asciiFlag):
-                self.blockFeatures += model_ResNet(data.to(self.torchDevice)).detach().cpu().tolist()
-            
-            #Clear the ResNet model
-            del model_ResNet
-            if len(gpus) > 0: torch.cuda.empty_cache()
-            
-            #Convert list of features to an array
-            self.blockFeatures = np.asarray(self.blockFeatures)
-            
-            #Save features to disk
-            np.save(self.dir_features + 'blockFeatures'+self.suffix, self.blockFeatures)
-            
-        else: 
-            self.blockFeatures = np.load(self.dir_features + 'blockFeatures'+self.suffix+'.npy', allow_pickle=True)
+        #Extract features for each batch of sample block images
+        self.blockFeatures = []
+        for data in tqdm(self.blockDataloader, total=self.numBlockData, desc='Feature Determination', leave=True, ascii=asciiFlag):
+            self.blockFeatures += model_ResNet(data.to(self.torchDevice)).detach().cpu().tolist()
         
+        #Clear the ResNet model
+        del model_ResNet
+        if len(gpus) > 0: torch.cuda.empty_cache()
+        
+        #Convert list of features to an array
+        self.blockFeatures = np.asarray(self.blockFeatures)
+        
+        #Save features to disk
+        np.save(self.dir_features + 'blockFeatures'+self.suffix, self.blockFeatures)
+    
     def computeSalicencyMaps(self):
         
-        #Extract or load saliency map data for the indicated block files
-        if self.overwrite_saliencyMaps:
-            
-            #Load pre-trained DenseNet
-            model_DenseNet = models.densenet169(weights=weightsDenseNet)
+        #Load pre-trained DenseNet
+        model_DenseNet = models.densenet169(weights=weightsDenseNet)
 
-            #Replace the in-built classifier; unclear how this structure and these hyperparameters were determined
-            model_DenseNet.classifier = nn.Sequential(
-                nn.Linear(model_DenseNet.classifier.in_features, 256),
-                nn.ReLU(),
-                nn.Dropout(0.4),
-                nn.Linear(256, 2),
-                nn.LogSoftmax(dim=1)
-            )
-            model_DenseNet = model_DenseNet.to(self.torchDevice)
-            _ = model_DenseNet.train(False)
+        #Replace the in-built classifier; unclear how this structure and these hyperparameters were determined
+        model_DenseNet.classifier = nn.Sequential(
+            nn.Linear(model_DenseNet.classifier.in_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(256, 2),
+            nn.LogSoftmax(dim=1)
+        )
+        model_DenseNet = model_DenseNet.to(self.torchDevice)
+        _ = model_DenseNet.train(False)
 
-            #Create GradCAMPlusPlus model; see https://github.com/jacobgil/pytorch-grad-cam for additional models and options
-            model_GradCamPlusPlus = GradCAMPlusPlus(model=model_DenseNet, target_layers=[model_DenseNet.features[-1]])
+        #Create GradCAMPlusPlus model; see https://github.com/jacobgil/pytorch-grad-cam for additional models and options
+        model_GradCamPlusPlus = GradCAMPlusPlus(model=model_DenseNet, target_layers=[model_DenseNet.features[-1]])
 
-            #Extract features for each batch of sample block images
-            #For current GradCamPlusPlus implementation, must manually clear internal copy of the outputs from GPU cache to prevent OOM
-            #Do not need to move data to device here, as managed by GradCAMPlusPlus (having already been placed on device)
-            self.saliencyMaps = []
-            for data in tqdm(self.WSIDataloader, total=self.numWSIData, desc='Saliency Mapping', leave=True, ascii=asciiFlag):
-                self.saliencyMaps.append(model_GradCamPlusPlus(input_tensor=data, targets=None))
-                del model_GradCamPlusPlus.outputs
-                if len(gpus) > 0: torch.cuda.empty_cache()
-            self.saliencyMaps = np.vstack(self.saliencyMaps)
-            
-            #Clear DenseNet and GradCamPlusPlus
-            del model_DenseNet, model_GradCamPlusPlus
+        #Extract features for each batch of sample block images
+        #For current GradCamPlusPlus implementation, must manually clear internal copy of the outputs from GPU cache to prevent OOM
+        #Do not need to move data to device here, as managed by GradCAMPlusPlus (having already been placed on device)
+        self.saliencyMaps = []
+        for data in tqdm(self.WSIDataloader, total=self.numWSIData, desc='Saliency Mapping', leave=True, ascii=asciiFlag):
+            self.saliencyMaps.append(model_GradCamPlusPlus(input_tensor=data, targets=None))
+            del model_GradCamPlusPlus.outputs
             if len(gpus) > 0: torch.cuda.empty_cache()
+        self.saliencyMaps = np.vstack(self.saliencyMaps)
+        
+        #Clear DenseNet and GradCamPlusPlus
+        del model_DenseNet, model_GradCamPlusPlus
+        if len(gpus) > 0: torch.cuda.empty_cache()
+        
+        #Process each of the resulting maps
+        self.blockWeights = []
+        for index, saliencyMap in tqdm(enumerate(self.saliencyMaps), total=len(self.saliencyMaps), desc='Saliency Processing', leave=True, ascii=asciiFlag): 
             
-            #Process each of the resulting maps
-            self.blockWeights = []
-            for index, saliencyMap in tqdm(enumerate(self.saliencyMaps), total=len(self.saliencyMaps), desc='Saliency Processing', leave=True, ascii=asciiFlag): 
+            #If visualizations are enabled
+            if self.visualizeSaliencyMaps:
                 
-                #Load the sample WSI
-                imageWSI = cv2.cvtColor(cv2.imread(self.WSIFilenames[index], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+                #Store the saliency map to disk (keep at original output dimensions; can use lossless given the size)
+                _ = exportImage(self.dir_visuals_saliencyMaps+'saliencyMap_'+self.sampleNames[index], matplotlib.cm.jet(saliencyMap)[:,:,:-1].astype(np.float32), True)
+                #_ = exportImage(self.dir_visuals_saliencyMaps+'saliencyMap_'+self.sampleNames[index], matplotlib.cm.jet(saliencyMap)[:,:,:-1].astype(np.float32), exportLossless)
                 
-                #If visualizations are enabled
-                if self.visualizeSaliencyMaps:
-                    
-                    #Store the saliency map to disk (keep at original output dimensions)
-                    exportImage(self.dir_visuals_saliencyMaps+'saliencyMap_'+self.sampleNames[index]+'.tif', matplotlib.cm.jet(saliencyMap)[:,:,:-1].astype(np.float32))
+                #Load the sample WSI to be overlaid
+                if overlayGray: overlaid = np.expand_dims(cv2.cvtColor(cv2.imread(self.WSIFilenames[index], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2GRAY), -1)
+                else: overlaid = cv2.cvtColor(cv2.imread(self.WSIFilenames[index], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
                 
-                    #Resize the saliency map to match the WSI dimensions
-                    transform = generateTransform(imageWSI.shape[:2], False, False)
-                    saliencyMap = transform(np.expand_dims(saliencyMap, 0))[0].numpy()
-                    
-                    #Overlay the saliency map on the WSI and save it to disk
-                    transform = generateTransform([], True, False)
-                    overlaid = np.moveaxis(transform(np.moveaxis(imageWSI, -1, 0)).numpy(), 0, -1)
-                    if overlayGray: overlaid = np.expand_dims(cv2.cvtColor(overlaid, cv2.COLOR_RGB2GRAY), -1)
-                    overlaid = show_cam_on_image(overlaid, saliencyMap, use_rgb=True, colormap=cv2.COLORMAP_HOT, image_weight=1.0-overlayWeight)
-                    exportImage(self.dir_visuals_overlaidSaliencyMaps+'overlaidSaliency_'+self.sampleNames[index]+overlayExtension, overlaid)
+                #Resize the saliency map to match the WSI dimensions
+                transform = generateTransform(overlaid.shape[:2], False, False)
+                saliencyMap = transform(np.expand_dims(saliencyMap, 0))[0].numpy()
                 
-                #Extract saliency map data specific to sample block locations, compute regional importance as the average value, and threshold to get weights
-                blockWeights = []
-                for locationIndex, locationData in enumerate(self.blockLocations[np.where(self.blockSampleNames == self.sampleNames[index])[0]]):
-                    startRow, startColumn = locationData
-                    blockSaliencyMap = saliencyMap[startRow:startRow+blockSize, startColumn:startColumn+blockSize]
-                    blockImportance = np.mean(blockSaliencyMap)
-                    if blockImportance < 0.25: blockWeights.append(0)
-                    else: blockWeights.append(blockImportance)
-                self.blockWeights += blockWeights
+                #Overlay the saliency map on the WSI and save it to disk
+                transform = generateTransform([], True, False)
+                overlaid = np.moveaxis(transform(np.moveaxis(overlaid, -1, 0)).numpy(), 0, -1)
+                overlaid = show_cam_on_image(overlaid, saliencyMap, use_rgb=True, colormap=cv2.COLORMAP_HOT, image_weight=1.0-overlayWeight)
+                _ = exportImage(self.dir_visuals_overlaidSaliencyMaps+'overlaidSaliency_'+self.sampleNames[index], overlaid, exportLossless)
                 
-            #Convert list of block weights to an array and save to disk
-            self.blockWeights = np.asarray(self.blockWeights)
-            np.save(self.dir_saliencyMaps + 'blockWeights'+self.suffix, self.blockWeights)
+            #Extract saliency map data specific to sample block locations, compute regional importance as the average value, and threshold to get weights
+            blockWeights = []
+            for locationIndex, locationData in enumerate(self.blockLocations[np.where(self.blockSampleNames == self.sampleNames[index])[0]]):
+                startRow, startColumn = locationData
+                blockSaliencyMap = saliencyMap[startRow:startRow+blockSize, startColumn:startColumn+blockSize]
+                blockImportance = np.mean(blockSaliencyMap)
+                if blockImportance < 0.25: blockWeights.append(0)
+                else: blockWeights.append(blockImportance)
+            self.blockWeights += blockWeights
             
-        else:
-            self.blockWeights = np.load(self.dir_saliencyMaps + 'blockWeights'+self.suffix+'.npy', allow_pickle=True)
+        #Convert list of block weights to an array and save to disk
+        self.blockWeights = np.asarray(self.blockWeights)
+        np.save(self.dir_saliencyMaps + 'blockWeights'+self.suffix, self.blockWeights)
     
     #Classify extracted block features
-    def predict(self, inputs, fusionMode, weights=None):
+    def predict(self, inputs, weights=None):
         
         #Compute the raw block predictions
         predictions = self.model_XGBClassifier.predict(inputs.astype(np.float32))
         
         #If fusion mode is active, multiply the block predictions (using -1 for benign and +1 for malignant) by the matching weights; positive results are malignant
-        if fusionMode: 
+        if self.fusionMode: 
             predictionsFusion = np.where(predictions==0, -1, 1)*weights
             predictionsFusion = np.where(predictionsFusion>0, 1, 0)
             return predictions.tolist(), predictionsFusion.tolist()
@@ -227,33 +210,27 @@ class Classifier():
     #Perform cross-validation
     def crossValidation(self):
         
-        #If block weights are available, then enable evaluation of fusion mode
-        if len(self.blockWeights)>0: fusionMode = True
-        else: fusionMode = False
-        
         #Allocate samples to folds for cross validation
         if type(manualFolds) != list: folds = [array.tolist() for array in np.array_split(np.random.permutation(self.sampleNames), manualFolds)]
         else: folds = manualFolds
         numFolds = len(folds)
 
         #Split block features into specified folds, keeping track of originating indices and matched labels
-        foldsFeatures, foldsLabels, foldsWeights, foldsBlockSampleNames, foldsBlockNames, foldsBlockLocations, foldsWSILabels = [], [], [], [], [], [], []
+        foldsFeatures, foldsLabels, foldsWeights, foldsBlockSampleNames, foldsBlockNames, foldsBlockLocations = [], [], [], [], [], []
         for fold in folds:
             blockIndices = np.concatenate([np.where(self.blockSampleNames == sampleName)[0] for sampleName in fold])
             foldsBlockLocations.append(list(self.blockLocations[blockIndices]))
             foldsFeatures.append(list(self.blockFeatures[blockIndices]))
             foldsLabels.append(list(self.blockLabels[blockIndices]))
-            if fusionMode: foldsWeights.append(list(self.blockWeights[blockIndices]))
+            if self.fusionMode: foldsWeights.append(list(self.blockWeights[blockIndices]))
             foldsBlockSampleNames.append(list(self.blockSampleNames[blockIndices]))
             foldsBlockNames.append(list(self.blockNames[blockIndices]))            
-            foldsWSILabels += [self.WSILabels[np.where(self.sampleNames == sampleName)[0]][0] for sampleName in fold]
         
         #Collapse data for later (correct/matched ordered) evaluation of the fold data
         foldsSampleNames = np.asarray(sum(folds, []))
         foldsBlockLocations = np.concatenate(foldsBlockLocations)
         foldsBlockSampleNames = np.concatenate(foldsBlockSampleNames)
         foldsBlockNames = np.concatenate(foldsBlockNames)
-        foldsWSILabels = np.asarray(foldsWSILabels)
         foldsWSIFilenames = np.concatenate([self.WSIFilenames[np.where(self.sampleNames == sampleName)[0]] for sampleName in foldsSampleNames])
         
         #Check class distribution between the folds
@@ -273,11 +250,11 @@ class Classifier():
             if len(gpus) > 0: dataInput = cp.asarray(dataInput)
             
             #Classify blocks in the specified, remaining fold
-            if fusionMode: 
-                predictions, predictionsFusion = self.predict(dataInput, fusionMode, np.asarray(foldsWeights[foldNum]))
+            if self.fusionMode: 
+                predictions, predictionsFusion = self.predict(dataInput, np.asarray(foldsWeights[foldNum]))
                 foldsBlockPredictionsFusion += predictionsFusion
             else:
-                predictions = self.predict(dataInput, fusionMode)
+                predictions = self.predict(dataInput)
             foldsBlockPredictions += predictions
             
             #Clear the XGBClassifier model and data on GPU
@@ -293,7 +270,7 @@ class Classifier():
         
         #Save results to disk
         dataPrintout, dataPrintoutNames = [foldsBlockNames, foldsLabels, foldsBlockPredictions], ['Names', 'Labels', 'Raw Predictions']
-        if fusionMode: 
+        if self.fusionMode: 
             dataPrintout.append(foldsBlockPredictionsFusion)
             dataPrintoutNames.append('Fusion Predictions')
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
@@ -302,22 +279,18 @@ class Classifier():
         
         #Evaluate per-block results
         computeClassificationMetrics(foldsLabels, foldsBlockPredictions, self.dir_results, '_blocks_initial')
-        if fusionMode: computeClassificationMetrics(foldsLabels, foldsBlockPredictionsFusion, self.dir_results, '_blocks_fusion')
+        if self.fusionMode: computeClassificationMetrics(foldsLabels, foldsBlockPredictionsFusion, self.dir_results, '_blocks_fusion')
     
         #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
         foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion = [], [], []
         for foldsSampleIndex, sampleName in enumerate(foldsSampleNames):
             blockIndices = np.where(foldsBlockSampleNames == sampleName)[0]
-            if thresholdWSI_GT: foldsSampleLabels.append((np.mean(foldsLabels[blockIndices]) >= thresholdWSI)*1)
+            foldsSampleLabels.append((np.mean(foldsLabels[blockIndices]) >= thresholdWSI)*1)
             foldsSamplePredictions.append((np.mean(foldsBlockPredictions[blockIndices]) >= thresholdWSI)*1)
-            if fusionMode: foldsSamplePredictionsFusion.append((np.mean(foldsBlockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
+            if self.fusionMode: foldsSamplePredictionsFusion.append((np.mean(foldsBlockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
         
         #Convert list of WSI labels/predictions to arrays
-        if thresholdWSI_GT: 
-            foldsSampleLabels = np.asarray(foldsSampleLabels)
-            mismatchedSamples = foldsSampleNames[np.where(foldsSampleLabels-foldsWSILabels != 0)[0]].tolist()
-            if len(mismatchedSamples) > 0: print('\nWarning - Determination of ground-truth labels for WSI using threshold method did not match with WSI labels in recorded metadata for the following samples: ' + str(mismatchedSamples))
-        else: foldsSampleLabels = foldsWSILabels
+        foldsSampleLabels = np.asarray(foldsSampleLabels)
         foldsSamplePredictions = np.asarray(foldsSamplePredictions)
         foldsSamplePredictionsFusion = np.asarray(foldsSamplePredictionsFusion)
         
@@ -326,22 +299,21 @@ class Classifier():
 
     def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, blockSampleNames, blockLabels, blockPredictions, blockPredictionsFusion, blockLocations):
         
-        #If block weights are available, then enable evaluation of fusion mode
-        if len(self.blockWeights)>0: fusionMode = True
-        else: fusionMode = False
-        
         #Save results to disk
-        dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Raw Predictions']
-        if fusionMode: 
+        if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
+        else: dataPrintout, dataPrintoutNames = [sampleNames, samplePredictions], ['Names', 'Predictions']
+        if self.fusionMode: 
             dataPrintout.append(samplePredictionsFusion)
             dataPrintoutNames.append('Fusion Predictions') 
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_WSI.csv', index=False)
         
-        #Evaluate WSI results
-        computeClassificationMetrics(sampleLabels, samplePredictions, self.dir_results, '_WSI_initial')
-        if fusionMode: computeClassificationMetrics(sampleLabels, samplePredictionsFusion, self.dir_results, '_WSI_fusion')
+        #Evaluate WSI results if labels/predictions are available
+        if len(sampleLabels) > 0 and len(samplePredictions) > 0: 
+            if len(sampleLabels) != len(samplePredictions): sys.exit('\nError - The number of WSI labels does not match the number of predictions.\n')
+            computeClassificationMetrics(sampleLabels, samplePredictions, self.dir_results, '_WSI_initial')
+            if self.fusionMode: computeClassificationMetrics(sampleLabels, samplePredictionsFusion, self.dir_results, '_WSI_fusion')
         
         #If the labels/predictions should be mapped visually onto the WSI
         if self.visualizeLabelGrids or self.visualizePredictionGrids:
@@ -360,7 +332,7 @@ class Classifier():
                 if self.visualizePredictionGrids:
                     gridOverlay_Predictions = np.zeros(imageWSI.shape, dtype=np.uint8)
                     colorsPredictions = (cmapClasses(blockPredictions)[:,:3].astype(np.uint8)*255).tolist()
-                    if fusionMode: 
+                    if self.fusionMode: 
                         gridOverlay_PredictionsFusion = np.zeros(imageWSI.shape, dtype=np.uint8)
                         colorsFusion = (cmapClasses(blockPredictionsFusion)[:,:3].astype(np.uint8)*255).tolist()
                 if self.visualizeLabelGrids: 
@@ -372,24 +344,24 @@ class Classifier():
                     if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[blockIndex])
                     if self.visualizePredictionGrids:
                         gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[blockIndex])
-                        if fusionMode: gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[blockIndex])
+                        if self.fusionMode: gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[blockIndex])
                     
                 #Store overlays to disk
-                if self.visualizeLabelGrids: exportImage(self.dir_visuals_labelGrids+'overlay_labelGrid_'+sampleName+overlayExtension, gridOverlay_GT)
+                if self.visualizeLabelGrids: _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
                 if self.visualizePredictionGrids:
-                    exportImage(self.dir_results_labelGrids+'overlay_predictionsGrid_'+sampleName+overlayExtension, gridOverlay_Predictions)
-                    if fusionMode: exportImage(self.dir_results_labelGrids+'overlay_fusionGrid_'+sampleName+overlayExtension, gridOverlay_PredictionsFusion)
+                    _ = exportImage(self.dir_visuals_predictionGrids+'predictionsGrid_'+sampleName, gridOverlay_Predictions, exportLossless)
+                    if self.fusionMode: _ = exportImage(self.dir_visuals_fusionGrids+'fusionGrid_'+sampleName, gridOverlay_PredictionsFusion, exportLossless)
                 
                 #Overlay grids on top of WSI and store to disk
                 if self.visualizeLabelGrids: 
                     imageWSI_GT = cv2.addWeighted(imageWSI, 1.0, gridOverlay_GT, overlayWeight, 0.0)
-                    exportImage(self.dir_visuals_overlaidLabelGrids+'labelGrid_'+sampleName+overlayExtension, imageWSI_GT)
+                    _ = exportImage(self.dir_visuals_overlaidLabelGrids+'overlaid_labelGrid_'+sampleName, imageWSI_GT, exportLossless)
                 if self.visualizePredictionGrids: 
                     imageWSI_Predictions = cv2.addWeighted(imageWSI, 1.0, gridOverlay_Predictions, overlayWeight, 0.0)
-                    exportImage(self.dir_results_overlaidLabelGrids+'predictionsGrid_'+sampleName+overlayExtension, imageWSI_Predictions)
-                    if fusionMode: 
+                    _ = exportImage(self.dir_visuals_overlaidPredictionGrids+'overlaid_predictionsGrid_'+sampleName, imageWSI_Predictions, exportLossless)
+                    if self.fusionMode: 
                         imageWSI_PredictionsFusion = cv2.addWeighted(imageWSI, 1.0, gridOverlay_PredictionsFusion, overlayWeight, 0.0)
-                        exportImage(self.dir_results_overlaidLabelGrids+'fusionGrid_'+sampleName+overlayExtension, imageWSI_PredictionsFusion)
+                        _ = exportImage(self.dir_visuals_overlaidFusionGrids+'overlaid_fusionGrid_'+sampleName, imageWSI_PredictionsFusion, exportLossless)
     
     #Train a new XGB Classifier model
     def train(self, inputs, labels):
@@ -404,13 +376,9 @@ class Classifier():
         
         #Save to disk in .json format for easy reloading
         self.model_XGBClassifier.save_model(dir_classifier_models + 'model_XGBClassifier.json')
-        
-        #Register converter for XGBClassifier
-        update_registered_converter(XGBClassifier, "XGBoostXGBClassifier", calculate_linear_classifier_output_shapes, convert_xgboost, options={"nocl": [True, False], "zipmap": [True, False, "columns"]},)
-        
-        #Convert classifier to onnx format and save to disk
-        model_onnx_XGBClassifier = to_onnx(self.model_XGBClassifier, self.blockFeatures.astype(np.float32), target_opset={"": skl2onnx.__max_supported_opset__, "ai.onnx.ml": 3})
-        with open(dir_classifier_models + 'model_XGBClassifier.onnx', 'wb') as f:f.write(model_onnx_XGBClassifier.SerializeToString())
+        initial_type = [('float_input', data_types.FloatTensorType([1, 1000]))]
+        model_onnx_XGBClassifier = convert_xgboost(self.model_XGBClassifier, initial_types=initial_type)
+        with open(dir_classifier_models + 'model_XGBClassifier.onnx', 'wb') as f: _ = f.write(model_onnx_XGBClassifier.SerializeToString())
         
         #Clear memory
         del self.model_XGBClassifier, model_onnx_XGBClassifier
@@ -419,17 +387,16 @@ class Classifier():
             cp._default_memory_pool.free_all_blocks()
         
         #Setup pre-trained ResNet model
-        #model_ResNet = models.resnet50(weights=weightsResNet)
+        model_ResNet = models.resnet50(weights=weightsResNet)
+        _ = model_ResNet.train(False)
         
-        #Convert to onnx format and save to disk
-        #model_onnx_ResNet = 
-        #Tracer()
-        #with open(dir_classifier_models + 'model_ResNet.onnx', 'wb') as f:f.write(model_onnx_ResNet.SerializeToString())
+        #Save onnx format to disk
+        if resizeSize_blocks != 0: torch_input = torch.randn(1, 3, resizeSize_blocks, resizeSize_blocks)
+        else: torch_input = torch.randn(1, 3, blockSize, blockSize)
+        torch.onnx.export(model_ResNet, torch_input, dir_classifier_models + 'model_ResNet.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
         
-        #del self.model_ResNet#, model_onnx_ResNet
-        #if len(gpus) > 0: 
-        #    torch.cuda.empty_cache() 
-        #    cp._default_memory_pool.free_all_blocks()
+        #Clear model from memory
+        del model_ResNet
         
     #Load a pretrained model
     def loadClassifier(self):
@@ -437,21 +404,16 @@ class Classifier():
         self.model_XGBClassifier.load_model(dir_classifier_models + 'model_XGBClassifier.json')
         self.model_XGBClassifier._Booster.set_param({'device': self.device})
         
-        #Using ONNX; can be done, but GPU handling here would need work to perform correctly/well in Python
-        #self.model_XGBClassifier = onnxruntime.InferenceSession(dir_classifier_models + 'model_XGBClassifier.onnx', providers = [('CUDAExecutionProvider', {"device_id": gpus[-1]}), 'CPUExecutionProvider'])
-        #if len(gpus) > 0: self.model_XGBClassifier.predict = lambda inputs: session.run(None, {'X': cp.asarray(inputs)})[0]
-        #else: self.model_XGBClassifier.predict = lambda inputs: session.run(None, {'X': inputs})[0]
-        
-    #Classify a sample WSI
-    def classifyWSI(self, evaluatePredictions):
+    #Classify all sample WSI to generate data for reconstruction model
+    def classifyReconWSI(self):
         
         #Place data on the GPU if able
         dataInput = np.asarray(self.blockFeatures.astype(np.float32))
         if len(gpus) > 0: dataInput = cp.asarray(dataInput)
         
         #Classify blocks
-        if fusionMode_WSI: blockPredictions, blockPredictionsFusion = self.predict(dataInput, fusionMode_WSI, self.blockWeights)
-        else: blockPredictions, blockPredictionsFusion = self.predict(dataInput, fusionMode_WSI), []
+        if self.fusionMode: blockPredictions, blockPredictionsFusion = self.predict(dataInput, self.blockWeights)
+        else: blockPredictions, blockPredictionsFusion = self.predict(dataInput), []
         blockPredictions, blockPredictionsFusion = np.asarray(blockPredictions), np.asarray(blockPredictionsFusion)
         
         #Clear the XGBClassifier model and data on GPU
@@ -461,19 +423,19 @@ class Classifier():
             cp._default_memory_pool.free_all_blocks()
         
         #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        sampleLabels, samplePredictions, samplePredictionsFusion, sampleBlockIndices = [], [], [], []
+        samplePredictions, samplePredictionsFusion, sampleBlockIndices = [], [], []
         for sampleIndex, sampleName in enumerate(self.sampleNames):
             blockIndices = np.where(self.blockSampleNames == sampleName)[0]
             sampleBlockIndices.append(blockIndices)
             samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
-            if fusionMode_WSI: samplePredictionsFusion.append((np.mean(blockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
+            if self.fusionMode: samplePredictionsFusion.append((np.mean(blockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
         
         #Convert list of WSI labels/predictions to arrays
         samplePredictions = np.asarray(samplePredictions)
         samplePredictionsFusion = np.asarray(samplePredictionsFusion)
         
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, self.WSILabels, samplePredictions, samplePredictionsFusion, self.blockSampleNames, [], blockPredictions, blockPredictionsFusion, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.blockSampleNames, [], blockPredictions, blockPredictionsFusion, self.blockLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:
@@ -484,15 +446,15 @@ class Classifier():
                 predictionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
                 predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictions[blockIndices]
                 predictionMaps.append(predictionMap)
-                if visualizeInputData_recon: exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName+'.tif', cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255)
-                if fusionMode_WSI:
+                if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName, cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
+                if self.fusionMode:
                     predictionFusionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
                     predictionFusionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictionsFusion[blockIndices]
                     predictionsFusionMaps.append(predictionFusionMap)
-                    if visualizeInputData_recon: exportImage(dir_recon_visuals_inputData+'fusionMap_'+sampleName+'.tif', cmapClasses(predictionFusionMap)[:,:,:3].astype(np.uint8)*255)
+                    if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'fusionMap_'+sampleName, cmapClasses(predictionFusionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
             predictionMaps = np.asarray(predictionMaps, dtype='object')
             np.save(dir_recon_inputData + 'predictionMaps', predictionMaps)
-            if fusionMode_WSI: 
+            if self.fusionMode: 
                 predictionsFusionMaps = np.asarray(predictionsFusionMaps, dtype='object')
                 np.save(dir_recon_inputData + 'fusionMaps', predictionsFusionMaps)
                 

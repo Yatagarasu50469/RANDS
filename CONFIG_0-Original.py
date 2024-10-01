@@ -12,10 +12,10 @@ classifierTrain = True
 #Should classifier model components be saved/exported
 classifierExport = True
 
-#Should whole WSI be classified and evaluated
-classifierWSI = True
+#Should classifier model components be evaluated
+classifierEvaluate = True
 
-#Should training data be generated for training the reconstructor
+#Should training data be generated for the reconstructor
 classifierRecon = True
 
 #Should a reconstructor model be trained
@@ -26,7 +26,11 @@ reconstructorTrain = False
 #Not currently operational
 reconstructorExport = False
 
-#Should dynamic sampling performance be tested
+#Should the reconstructor model be evaluated
+#Not currently functional
+reconstructorEvaluate = False
+
+#Should dynamic sampling be simulated
 #Not currently operational
 simulateRANDS = False
 
@@ -48,14 +52,12 @@ batchsizeClassifier = 32
 gpus = [-1]
 
 #Should parallelization calls be used to leverage multithreading where able
-#Not currently operational
 parallelization = True
 
 #If parallelization is enabled, how many CPU threads should be used? (0 will use any/all available)
 #Recommend starting at half of the available system threads if using hyperthreading,
 #or 1-2 less than the number of system CPU cores if not using hyperthreading.
 #Adjust to where the CPU just below 100% usage during parallel operations 
-#Not currently operational
 availableThreads = 0
 
 ##################################################################
@@ -101,7 +103,7 @@ fusionMode_blocks = True
 visualizeSaliencyMaps_blocks = True
 
 #Should label grids and their overlays be visualized for block WSI; will overwrite previously generated files
-#Files should be updated if 1) thresholdWSI_GT is changed or 2) thresholdWSI is changed and thresholdWSI_GT is True
+#Files should be updated if thresholdWSI is changed
 visualizeLabelGrids_blocks = True
 
 #Should prediction grids and their overlays be visualized for block WSI
@@ -109,14 +111,8 @@ visualizePredictionGrids_blocks = True
 
 #What ratio of malignant to benign blocks should be used to label a whole WSI as malignant (default: 0.15)
 #Unknown what the original work used for this value, but chose a value (0.15 - being in range of 0.12-0.19) that can replicate results from original work
-#If this value is changed and thresholdWSI_GT is True, then should enable visualizeLabelGrids_blocks to update stored data
-thresholdWSI = 0.15
-
-#Should the thresholdWSI be used to determine the ground-truth label (True) or use recorded WSI-level metadata (False)
-#Original work likely used a method equivalent of 'True', given its usage replicates the original results
-#3 of the cross-validation samples are currently known to have different block-level labels than their recorded WSI value
 #If this value is changed, then should enable visualizeLabelGrids_blocks to update stored data
-thresholdWSI_GT = True
+thresholdWSI = 0.15
 
 #If folds for XGB classifier cross validation should be manually defined (e.g. [['S1', 'S3'], ['S4', 'S2']]), else use specify number of folds to generate
 #Default matches folds used in prior work (https://doi.org/10.3389/fonc.2023.1179025)
@@ -144,30 +140,8 @@ weightsDenseNet = 'IMAGENET1K_V1'
 #******************************************************************
 
 #==================================================================
-#L2-2: WSI
+#L2-2: RECONSTRUCTION DATA GENERATION
 #==================================================================
-
-#Should WSI preparation and block extraction overwrite previously generated files
-overwrite_WSI_blocks = True
-
-#Should features be extracted for WSI extracted blocks and overwrite previously generated files
-overwrite_WSI_features = True
-
-#Should saliency maps be determined for WSI extracted blocks and overwrite previously generated files
-overwrite_WSI_saliencyMaps = True
-
-#Should the decision fusion mode be used for block classification (default: True)
-fusionMode_WSI = True
-
-#Should saliency maps and their overlays be visualized for WSI
-visualizeSaliencyMaps_WSI = True
-
-#Should prediction grids and their overlays be visualized for WSI
-visualizePredictionGrids_WSI = True
-
-#******************************************************************
-#L2-2-1: RECONSTRUCTION
-#******************************************************************
 
 #Should WSI preparation and block extraction (for block-specific WSI) overwrite previously generated files
 overwrite_recon_blocks = True
@@ -178,10 +152,17 @@ overwrite_recon_features = True
 #Should saliency maps be determined for WSI extracted blocks (for block-specific WSI) and overwrite previously generated files
 overwrite_recon_saliencyMaps = True
 
+#Should the decision fusion mode be used for block classification (default: True)
+fusionMode_recon = True
+
 #Should visuals of the reconstruction model input data be generated
 visualizeInputData_recon = True
 
-#******************************************************************
+#Should saliency maps and their overlays be visualized for block WSI
+visualizeSaliencyMaps_recon = True
+
+#Should prediction grids and their overlays be visualized for block WSI
+visualizePredictionGrids_recon = True
 
 #==================================================================
 
@@ -346,8 +327,9 @@ gridThickness = 50
 #Should saliency map overlays be placed over data converted to grayscale for clearer visualization (default: True)
 overlayGray = True
 
-#Should images with overlay data (and grid maps) be saved to lossless (.tif) or compressed (.jpg) image format (default: False)
-overlayLossless = False
+#Should images be saved to lossless (.tif) or compressed (.jpg) image format (default: False)
+#Any images that are anticipated to be reused (such as extracted blocks), should be hardcoded to be saved in a lossless format by default
+exportLossless = False
 
 #For .jpg image outputs, what should the compression quality (%) be (default: 95)
 #WARNING: Setting to 100 is not sufficient to generate in lossless/exact outputs; if that is desired, use overlayLossless instead! 

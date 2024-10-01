@@ -1,5 +1,5 @@
 #==================================================================
-#MODEL_CLASS_ORIGINAL
+#MODEL_CLASS_UPDATED
 #==================================================================
 
 #Load and preprocess data image files; avoid storing data in VRAM
@@ -22,7 +22,7 @@ class DataPreprocessing_Classifier(Dataset):
 class Classifier():
     
     #Load blocks specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
-    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, WSILabels, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
+    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
         
         #Store input variables internally
         self.dataType = dataType
@@ -32,130 +32,84 @@ class Classifier():
         self.blockLocations = blockLocations
         self.sampleNames = sampleNames
         self.WSIFilenames = WSIFilenames
-        self.WSILabels = WSILabels
         self.cropData = cropData
         self.paddingData = paddingData
         self.shapeData = shapeData
         self.suffix = suffix
         self.blockLabels = blockLabels
         
-        
+        #Prepare data objects for obtaining/processing PyTorch model inputs
+        self.device = f"cuda:{gpus[-1]}" if len(gpus) > 0 else "cpu"
+        self.torchDevice = torch.device(self.device)
+        self.blockData = DataPreprocessing_Classifier(self.blockFilenames, resizeSize_blocks)
+        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
+        self.numBlockData = len(self.blockDataloader)
+        #self.WSIData = DataPreprocessing_Classifier(self.WSIFilenames, resizeSize_WSI)
+        #self.WSIDataloader = DataLoader(self.WSIData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
+        #self.numWSIData = len(self.WSIDataloader)
         
         #Specify internal object data/directories according to data type
         if dataType == 'blocks':
+            self.visualizeLabelGrids = visualizeLabelGrids_blocks
+            self.visualizePredictionGrids = visualizePredictionGrids_blocks
             self.dir_results = dir_blocks_results
             self.dir_visuals_labelGrids = dir_blocks_visuals_labelGrids
             self.dir_visuals_overlaidLabelGrids = dir_blocks_visuals_overlaidLabelGrids
-            self.dir_results_labelGrids = dir_blocks_results_labelGrids
-            self.dir_results_overlaidLabelGrids = dir_blocks_results_overlaidLabelGrids
-            self.visualizeLabelGrids = visualizeLabelGrids_blocks
-            self.visualizePredictionGrids = visualizePredictionGrids_blocks
-        elif 'WSI' in dataType or dataType == 'recon':
-            self.dir_results = dir_WSI_results
-            self.dir_results_labelGrids = dir_WSI_results_labelGrids
-            self.dir_results_overlaidLabelGrids = dir_WSI_results_overlaidLabelGrids
+            self.dir_visuals_predictionGrids = dir_blocks_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_blocks_visuals_overlaidPredictionGrids
+        elif dataType == 'recon':
             self.visualizeLabelGrids = False
-            self.visualizePredictionGrids = visualizePredictionGrids_WSI
+            self.visualizePredictionGrids = visualizePredictionGrids_recon
+            self.dir_results = dir_recon_results
+            self.dir_visuals_labelGrids = None
+            self.dir_visuals_overlaidLabelGrids = None
+            self.dir_visuals_predictionGrids = dir_recon_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_recon_visuals_overlaidPredictionGrids
         else:
-            sys.exit('\nError - Unknown data type used when creating classifier object.')
-        
-        #Prepare computation environment
-        self.device = f"cuda:{gpus[-1]}" if len(gpus) > 0 else "cpu"
-        self.torchDevice = torch.device(self.device)
-        
-        #Prepare data for input through PyTorch model
-        #Using num_workers>1 in the DataLoader objects causes bizzare semaphore/lock/descriptor issues/warnings; still appears to work, but keeping to 1 for safety
-        self.blockData = DataPreprocessing_Classifier(self.blockFilenames, resizeSize_blocks)
-        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=1, shuffle=False, pin_memory=True)
-        self.numBlockData = len(self.blockDataloader)
-        self.numWSIData = len(self.WSIDataloader)
-        
-    #Classify input data
-    def predict(self, inputData):
-        return self.model(inputData)
+            sys.exit('\nError - Unknown data type used when creating classifier object.\n')
     
-    #Train model
-    def train(self):
+    #Classify extracted blocks
+    def predict(self, inputs):
+        return self.model(inputs)
+    
+    #Train a new XGB Classifier model
+    def train(self, inputs, labels):
         #self.model = 
         return None
-        
+    
     #Evaluate model
     def evaluate(self):
     
         #Save results to disk
-        dataPrintout, dataPrintoutNames = [blockNames, blockLabels, blockPredictions], ['Names', 'Labels', 'Raw Predictions']
+        dataPrintout, dataPrintoutNames = [self.blockNames, self.blockLabels, blockPredictions], ['Names', 'Labels', 'Predictions']
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_blocks.csv', index=False)
         
         #Evaluate per-block results
-        computeClassificationMetrics(blockLabels, blockPredictions, self.dir_results, '_blocks_')
+        computeClassificationMetrics(self.blockLabels, blockPredictions, self.dir_results, '_blocks_')
     
         #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        sampleLabels, samplePredictions = [], []
-        for sampleIndex, sampleName in enumerate(sampleNames):
-            blockIndices = np.where(blockSampleNames == sampleName)[0]
-            if thresholdWSI_GT: sampleLabels.append((np.mean(blockLabels[blockIndices]) >= thresholdWSI)*1)
-            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
-        
-        #Convert list of WSI labels/predictions to arrays
-        if thresholdWSI_GT: 
-            sampleLabels = np.asarray(sampleLabels)
-            mismatchedSamples = sampleNames[np.where(sampleLabels-WSILabels != 0)[0]].tolist()
-            if len(mismatchedSamples) > 0: print('\nWarning - Determination of ground-truth labels for WSI using threshold method did not match with WSI labels in recorded metadata for the following samples: ' + str(mismatchedSamples)        else: sampleLabels = WSILabels
-        samplePredictions = np.asarray(samplePredictions)
+        sampleLabels = np.asarray([(np.mean(self.blockLabels[np.where(self.blockSampleNames == sampleName)[0]]) >= thresholdWSI)*1 for sampleName in sampleNames])
+        samplePredictions = np.asarray([(np.mean(blockPredictions[np.where(self.blockSampleNames == sampleName)[0]]) >= thresholdWSI)*1 for sampleName in sampleNames])
         
         #Evaluate per-sample results
-        self.processResultsWSI(sampleNames, WSIFilenames, sampleLabels, samplePredictions, blockSampleNames, labels, blockPredictions, blockLocations)
+        self.processResultsWSI(sampleNames, WSIFilenames, sampleLabels, samplePredictions, self.blockSampleNames, self.blockLabels, blockPredictions, self.blockLocations)
     
-    #Export model components (onnx for C# and a pythonic option)
-    def exportClassifier(self):
-        
-        #Convert model to onnx and save to: dir_classifier_models + 'model_XGBClassifier.onnx'
-        #model_onnx = self.model
-        
-        #Clear the model from memory
-        del model_onnx
-        if len(gpus) > 0: torch.cuda.empty_cache() 
-        
-        #Store the torch model across multiple 100 Mb files to bypass Github upload file size limits
-        modelName = 'name'
-        modelPath = dir_classifier_models + modelName
-        torch.save(self.model, modelPath + '.pt')
-        if os.path.exists(modelPath): shutil.rmtree(modelPath)
-        os.makedirs(modelPath)
-        with multivolumefile.open(modelPath + os.path.sep + modelName + '.7z', mode='wb', volume=104857600) as modelArchive:
-            with py7zr.SevenZipFile(modelArchive, 'w') as archive:
-                archive.writeall(modelPath + '.pt', modelName + '.pt')
-        os.remove(modelPath + '.pt')
-        
-        #Clear the model from memory
-        del self.model
-        if len(gpus) > 0: torch.cuda.empty_cache() 
-        
-    #Load a pretrained model; automatically handles 100 Mb file compression
-    #Should not require modification
-    def loadClassifier(self):
-        modelPath = modelDirectory + modelName
-        with multivolumefile.open(modelPath + os.path.sep + modelName + '.7z', mode='rb') as modelArchive:
-            with py7zr.SevenZipFile(modelArchive, 'r') as archive:
-                archive.extract(modelDirectory)
-        _ = self.model.load_state_dict(torch.load(modelPath + '.pt', map_location='cpu'))
-        _ = self.model.train(False)
-        os.remove(modelPath + '.pt')
-    
-    #Store results and visualizations of such to disk
-    #Should not require modification
+    #Process the WSI classification results
     def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, blockSampleNames, blockLabels, blockPredictions, blockLocations):
         
         #Save results to disk
-        dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Raw Predictions']
+        if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
+        else: dataPrintout, dataPrintoutNames = [sampleNames, samplePredictions], ['Names', 'Predictions']
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_WSI.csv', index=False)
         
-        #Evaluate WSI results
-        computeClassificationMetrics(sampleLabels, samplePredictions, self.dir_results, '_WSI')
+        #Evaluate WSI results if labels/predictions are available
+        if len(sampleLabels) > 0 and len(samplePredictions) > 0: 
+            if len(sampleLabels) != len(samplePredictions): sys.exit('\nError - The number of WSI labels does not match the number of predictions.\n')
+            computeClassificationMetrics(sampleLabels, samplePredictions, self.dir_results, '_WSI_initial')
         
         #If the labels/predictions should be mapped visually onto the WSI
         if self.visualizeLabelGrids or self.visualizePredictionGrids:
@@ -174,7 +128,6 @@ class Classifier():
                 if self.visualizePredictionGrids:
                     gridOverlay_Predictions = np.zeros(imageWSI.shape, dtype=np.uint8)
                     colorsPredictions = (cmapClasses(blockPredictions)[:,:3].astype(np.uint8)*255).tolist()
-                
                 if self.visualizeLabelGrids: 
                     gridOverlay_GT = np.zeros(imageWSI.shape, dtype=np.uint8)
                     colorsLabels = (cmapClasses(blockLabels)[:,:3].astype(np.uint8)*255).tolist()
@@ -182,42 +135,39 @@ class Classifier():
                     startRow, startColumn = blockLocations[blockIndex] 
                     posStart, posEnd = (startColumn, startRow), (startColumn+blockSize, startRow+blockSize)
                     if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[blockIndex])
-                    if self.visualizePredictionGrids: gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[blockIndex])
+                    if self.visualizePredictionGrids:
+                        gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[blockIndex])
                     
                 #Store overlays to disk
-                if self.visualizeLabelGrids: exportImage(self.dir_visuals_labelGrids+'overlay_labelGrid_'+sampleName+overlayExtension, gridOverlay_GT)
-                if self.visualizePredictionGrids:
-                    exportImage(self.dir_results_labelGrids+'overlay_predictionsGrid_'+sampleName+overlayExtension, gridOverlay_Predictions)
+                if self.visualizeLabelGrids: _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
+                if self.visualizePredictionGrids: _ = exportImage(self.dir_visuals_predictionGrids+'predictionsGrid_'+sampleName, gridOverlay_Predictions, exportLossless)
                 
                 #Overlay grids on top of WSI and store to disk
                 if self.visualizeLabelGrids: 
                     imageWSI_GT = cv2.addWeighted(imageWSI, 1.0, gridOverlay_GT, overlayWeight, 0.0)
-                    exportImage(self.dir_visuals_overlaidLabelGrids+'labelGrid_'+sampleName+overlayExtension, imageWSI_GT)
+                    _ = exportImage(self.dir_visuals_overlaidLabelGrids+'overlaid_labelGrid_'+sampleName, imageWSI_GT, exportLossless)
                 if self.visualizePredictionGrids: 
                     imageWSI_Predictions = cv2.addWeighted(imageWSI, 1.0, gridOverlay_Predictions, overlayWeight, 0.0)
-                    exportImage(self.dir_results_overlaidLabelGrids+'predictionsGrid_'+sampleName+overlayExtension, imageWSI_Predictions)
-    
-    #Classify a sample WSI and generate data for reconstruction model
-    #Should not require modification
-    def classifyWSI(self, evaluatePredictions):
+                    _ = exportImage(self.dir_visuals_overlaidPredictionGrids+'overlaid_predictionsGrid_'+sampleName, imageWSI_Predictions, exportLossless)
+
+    #Classify all sample WSI to generate data for reconstruction model
+    def classifyReconWSI(self):
         
-        dataInput = np.asarray(self.blockFeatures.astype(np.float32))
-        blockPredictions = self.predict(dataInput)
-        
-        #Clear the model from memory
-        del self.model
-        if len(gpus) > 0: torch.cuda.empty_cache() 
+        #Classify blocks
+        blockPredictions = None#self.predict(dataInput)
         
         #Classify each WSI, that had its component blocks classified, according to specified threshold of allowable malignant blocks
-        sampleLabels, samplePredictions, sampleBlockIndices = [], [], [], []
+        samplePredictions, sampleBlockIndices = [], [], []
         for sampleIndex, sampleName in enumerate(self.sampleNames):
             blockIndices = np.where(self.blockSampleNames == sampleName)[0]
             sampleBlockIndices.append(blockIndices)
             samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
+        
+        #Convert list of WSI labels/predictions to arrays
         samplePredictions = np.asarray(samplePredictions)
         
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, self.WSILabels, samplePredictions, self.blockSampleNames, [], blockPredictions, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, self.blockSampleNames, [], blockPredictions, self.blockLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:
@@ -228,7 +178,38 @@ class Classifier():
                 predictionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
                 predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictions[blockIndices]
                 predictionMaps.append(predictionMap)
-                if visualizeInputData_recon: exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName+'.tif', cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255)
+                if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName, cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
             predictionMaps = np.asarray(predictionMaps, dtype='object')
             np.save(dir_recon_inputData + 'predictionMaps', predictionMaps)
+
+    #Export model components (onnx for C# and a pythonic option)
+    def exportClassifier(self):
         
+        #Convert model to onnx and save to disk; if result is over 100 Mb, then need to apply zip method demonstrated below for saving pythonic model-form
+        if resizeSize_blocks != 0: torch_input = torch.randn(1, 3, resizeSize_blocks, resizeSize_blocks)
+        else: torch_input = torch.randn(1, 3, blockSize, blockSize)
+        torch.onnx.export(self.model, torch_input, dir_classifier_models + 'model_updated.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
+        
+        #Store the torch model across multiple 100 Mb files to bypass Github upload file size limits
+        modelPath = dir_classifier_models + 'model_updated'
+        torch.save(self.model, modelPath + '.pt')
+        if os.path.exists(modelPath): shutil.rmtree(modelPath)
+        os.makedirs(modelPath)
+        with multivolumefile.open(modelPath + os.path.sep + modelName + '.7z', mode='wb', volume=104857600) as modelArchive:
+            with py7zr.SevenZipFile(modelArchive, 'w') as archive:
+                archive.writeall(modelPath + '.pt', modelName + '.pt')
+        os.remove(modelPath + '.pt')
+        
+        #Clear the model from memory
+        del self.model
+        if len(gpus) > 0: torch.cuda.empty_cache() 
+        
+    #Load a pretrained model; automatically handles 100 Mb file compression
+    def loadClassifier(self):
+        modelPath = modelDirectory + 'model_updated'
+        with multivolumefile.open(modelPath + os.path.sep + modelName + '.7z', mode='rb') as modelArchive:
+            with py7zr.SevenZipFile(modelArchive, 'r') as archive:
+                archive.extract(modelDirectory)
+        _ = self.model.load_state_dict(torch.load(modelPath + '.pt', map_location='cpu'))
+        _ = self.model.train(False)
+        os.remove(modelPath + '.pt')
