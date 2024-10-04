@@ -235,7 +235,7 @@ class Classifier():
             foldsLabels.append(list(self.patchLabels[patchIndices]))
             if self.fusionMode: foldsWeights.append(list(self.patchWeights[patchIndices]))
             foldsPatchSampleNames.append(list(self.patchSampleNames[patchIndices]))
-            foldsPatchkNames.append(list(self.patchNames[patchIndices]))            
+            foldsPatchNames.append(list(self.patchNames[patchIndices]))            
         
         #Collapse data for later (correct/matched ordered) evaluation of the fold data
         foldsSampleNames = np.asarray(sum(folds, []))
