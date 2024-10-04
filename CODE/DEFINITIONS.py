@@ -3,7 +3,7 @@
 #==================================================================
 
 #Load/synchronize data labeling, drop excluded rows, and extract relevant metadata
-def loadMetadata_blocks(filename):
+def loadMetadata_patches(filename):
     metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str})
     metadata['Label'] = metadata['Label'].replace(labelsBenign, labelBenign)
     metadata['Label'] = metadata['Label'].replace(labelsMalignant, labelMalignant)
@@ -11,12 +11,12 @@ def loadMetadata_blocks(filename):
     metadata = metadata.loc[metadata['Label'] != labelExclude]
     return [np.squeeze(data) for data in np.split(np.asarray(metadata), [1, 2, 4], -1)]
 
-#Extract blocks and determine associated metadata for referenced WSI files; abstraction allows for isolation of WSI data used for training the classifier
-def extractBlocks(WSIFilenames, blockBackgroundValue, dir_output):
+#Extract patches and determine associated metadata for referenced WSI files; abstraction allows for isolation of WSI data used for training the classifier
+def extractPatches(WSIFilenames, patchBackgroundValue, dir_output):
     
-    #Extract uniform, non-overlapping blocks from each WSI; may be too memory intensive and RW-bottlenecked to parallelize efficiently
-    blockNames, blockFilenames, blockSampleNames, blockLocations, cropData, paddingData, shapeData = [], [], [], [], [], [], []
-    for filename in tqdm(WSIFilenames, desc='Block Extraction', leave=True, ascii=asciiFlag):
+    #Extract uniform, non-overlapping patches from each WSI; may be too memory intensive and RW-bottlenecked to parallelize efficiently
+    patchNames, patchFilenames, patchSampleNames, patchLocations, cropData, paddingData, shapeData = [], [], [], [], [], [], []
+    for filename in tqdm(WSIFilenames, desc='Patch Extraction', leave=True, ascii=asciiFlag):
         
         #Extract base sample name
         sampleName = os.path.basename(filename).split('.jpg')[0]
@@ -48,41 +48,41 @@ def extractBlocks(WSIFilenames, blockBackgroundValue, dir_output):
         imageWSI_gray = imageWSI_gray[y:y+h, x:x+w]
         cropData.append([y, y+h, x, x+w])
         
-        #Pad the image as needed (as symmetrially as possible) for an even division by the specified block size; compute numBlocks per row/column
-        padHeight = (int(np.ceil(imageWSI.shape[0]/blockSize))*blockSize)-imageWSI.shape[0]
-        padWidth = (int(np.ceil(imageWSI.shape[1]/blockSize))*blockSize)-imageWSI.shape[1]
+        #Pad the image as needed (as symmetrially as possible) for an even division by the specified patch size; compute numPatches per row/column
+        padHeight = (int(np.ceil(imageWSI.shape[0]/patchSize))*patchSize)-imageWSI.shape[0]
+        padWidth = (int(np.ceil(imageWSI.shape[1]/patchSize))*patchSize)-imageWSI.shape[1]
         padTop, padLeft = padHeight//2, padWidth//2
         padBottom, padRight = padTop+(padHeight%2), padLeft+(padWidth%2)
         imageWSI = np.pad(imageWSI, ((padTop, padBottom), (padLeft, padRight), (0, 0)))
         imageWSI_gray = np.pad(imageWSI_gray, ((padTop, padBottom), (padLeft, padRight)))
         paddingData.append([padTop, padBottom, padLeft, padRight])
-        numBlocksRow, numBlocksCol = imageWSI.shape[0]//blockSize, imageWSI.shape[1]//blockSize
-        shapeData.append([numBlocksRow, numBlocksCol])
+        numPatchesRow, numPatchesCol = imageWSI.shape[0]//patchSize, imageWSI.shape[1]//patchSize
+        shapeData.append([numPatchesRow, numPatchesCol])
         
-        #Split the WSI (color and grayscale) into blocks and flatten
-        imageWSI = imageWSI.reshape(numBlocksRow, blockSize, numBlocksCol, blockSize, imageWSI.shape[2]).swapaxes(1,2)
+        #Split the WSI (color and grayscale) into patches and flatten
+        imageWSI = imageWSI.reshape(numPatchesRow, patchSize, numPatchesCol, patchSize, imageWSI.shape[2]).swapaxes(1,2)
         imageWSI = imageWSI.reshape(-1, imageWSI.shape[2], imageWSI.shape[3], imageWSI.shape[4])
-        imageWSI_gray = imageWSI_gray.reshape(numBlocksRow, blockSize, numBlocksCol, blockSize).swapaxes(1,2)
+        imageWSI_gray = imageWSI_gray.reshape(numPatchesRow, patchSize, numPatchesCol, patchSize).swapaxes(1,2)
         imageWSI_gray = imageWSI_gray.reshape(-1, imageWSI_gray.shape[2], imageWSI_gray.shape[3])
         
-        #Setup directory to store blocks
-        dir_blocks = dir_output + 'S' + sampleName + os.path.sep
-        if not os.path.exists(dir_blocks): os.makedirs(dir_blocks)
+        #Setup directory to store patches
+        dir_patches = dir_output + 'S' + sampleName + os.path.sep
+        if not os.path.exists(dir_patches): os.makedirs(dir_patches)
         
-        #Record metadata for each block that has a specified percentage of foreground data and save each to disk (always lossless)
-        blockIndex = 0
-        for rowNum in range(0, numBlocksRow):
-            for colNum in range(0, numBlocksCol):
-                if np.mean(imageWSI_gray[blockIndex] >= blockBackgroundValue) >= blockBackgroundRatio: 
-                    locationRow, locationColumn= rowNum*blockSize, colNum*blockSize
-                    blockLocations.append([locationRow, locationColumn])
-                    blockName = sampleName+'_'+str(blockIndex)+'_'+str(locationRow)+'_'+str(locationColumn)
-                    blockNames.append(blockName)
-                    blockSampleNames.append(sampleName)
-                    blockFilenames.append(exportImage(dir_blocks+'PS'+blockName, imageWSI[blockIndex], True))
-                blockIndex += 1
+        #Record metadata for each patch that has a specified percentage of foreground data and save each to disk (always lossless)
+        patchIndex = 0
+        for rowNum in range(0, numPatchesRow):
+            for colNum in range(0, numPatchesCol):
+                if np.mean(imageWSI_gray[patchIndex] >= patchBackgroundValue) >= patchBackgroundRatio: 
+                    locationRow, locationColumn= rowNum*patchSize, colNum*patchSize
+                    patchLocations.append([locationRow, locationColumn])
+                    patchName = sampleName+'_'+str(patchIndex)+'_'+str(locationRow)+'_'+str(locationColumn)
+                    patchNames.append(patchName)
+                    patchSampleNames.append(sampleName)
+                    patchFilenames.append(exportImage(dir_patches+'PS'+patchName, imageWSI[patchIndex], True))
+                patchIndex += 1
     
-    return np.asarray(blockNames), np.asarray(blockFilenames), np.asarray(blockSampleNames), np.asarray(blockLocations), np.asarray(cropData), np.asarray(paddingData), np.asarray(shapeData)
+    return np.asarray(patchNames), np.asarray(patchFilenames), np.asarray(patchSampleNames), np.asarray(patchLocations), np.asarray(cropData), np.asarray(paddingData), np.asarray(shapeData)
 
 #Compute metrics for a classification result and visualize/save them as needed
 def computeClassificationMetrics(labels, predictions, baseFilename, suffix):

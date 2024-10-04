@@ -9,6 +9,7 @@
 
 **0.0.1**  Initial program framework   
 **0.0.2**  Export ResNet50 in ONNX, remove classifierWSI   
+**0.0.3**  Ammend naming of blocks (instruement camera captures) to patches (extracted/labeled areas)   
 
 ## Future Development
 

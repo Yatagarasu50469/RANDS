@@ -9,7 +9,7 @@
 # \▓▓   \▓▓\▓▓   \▓▓\▓▓   \▓▓\▓▓▓▓▓▓▓  \▓▓▓▓▓▓ 
 
 #Current version information
-versionNum='0.0.2'
+versionNum='0.0.3'
 
 #Import needed libraries for subprocess initialization
 import glob

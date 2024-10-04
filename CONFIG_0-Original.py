@@ -6,7 +6,7 @@
 #L0: TASKS TO BE PERFORMED
 ##################################################################
 
-#Should classification/cross-validation be performed on blocks originating WSI data
+#Should classification/cross-validation be performed on patches originating WSI data
 classifierTrain = True
 
 #Should classifier model components be saved/exported
@@ -73,45 +73,45 @@ classifierModel = 'original'
 #What is the camera resolution in mm/pixel for the instrument that acquired the data being used
 cameraResolution = 0.00454
 
-#What is the minimum area/quantity (in mm^2) of foreground data that should qualify a block for classification
-#Decrease for increased sensitivity and vice versa; result should not exceed blockSize*cameraResolution
-#As the classifier was not trained to handle blank background blocks, setting to low will harm performance
+#What is the minimum area/quantity (in mm^2) of foreground data that should qualify a patch for classification
+#Decrease for increased sensitivity and vice versa; result should not exceed patchSize*cameraResolution
+#As the classifier was not trained to handle blank background patches, setting to low will harm performance
 minimumForegroundArea = 1.0**2
 
-#Minimum value [0, 255] for a grayscale pixel to be considered as a foreground location during block extraction (default: 11)
+#Minimum value [0, 255] for a grayscale pixel to be considered as a foreground location during patch extraction (default: 11)
 #-1 will automatically determine a new value as the minimum Otsu threshold across all available WSI; default value from prior determination
-blockBackgroundValue = 11
+patchBackgroundValue = 11
 
 #==================================================================
-#L2-1: BLOCKS
+#L2-1: PATCHES
 #==================================================================
 
 #******************************************************************
 #L2-1-1: ORIGINAL CLASSIFICATION MODEL
 #******************************************************************
 
-#Should features be extracted for blocks and overwrite previously generated files
-overwrite_blocks_features = True
+#Should features be extracted for patches and overwrite previously generated files
+overwrite_patches_features = True
 
-#Should saliency maps be determined for blocks and overwrite previously generated files
-overwrite_blocks_saliencyMaps = True
+#Should saliency maps be determined for patches and overwrite previously generated files
+overwrite_patches_saliencyMaps = True
 
-#Should the decision fusion mode be used for block classification (default: True)
-fusionMode_blocks = True
+#Should the decision fusion mode be used for patch classification (default: True)
+fusionMode_patches = True
 
-#Should saliency maps and their overlays be visualized for block WSI
-visualizeSaliencyMaps_blocks = True
+#Should saliency maps and their overlays be visualized for patch WSI
+visualizeSaliencyMaps_patches = True
 
-#Should label grids and their overlays be visualized for block WSI; will overwrite previously generated files
+#Should label grids and their overlays be visualized for patch WSI; will overwrite previously generated files
 #Files should be updated if thresholdWSI is changed
-visualizeLabelGrids_blocks = True
+visualizeLabelGrids_patches = True
 
-#Should prediction grids and their overlays be visualized for block WSI
-visualizePredictionGrids_blocks = True
+#Should prediction grids and their overlays be visualized for patch WSI
+visualizePredictionGrids_patches = True
 
-#What ratio of malignant to benign blocks should be used to label a whole WSI as malignant (default: 0.15)
+#What ratio of malignant to benign patches should be used to label a whole WSI as malignant (default: 0.15)
 #Unknown what the original work used for this value, but chose a value (0.15 - being in range of 0.12-0.19) that can replicate results from original work
-#If this value is changed, then should enable visualizeLabelGrids_blocks to update stored data
+#If this value is changed, then should enable visualizeLabelGrids_patches to update stored data
 thresholdWSI = 0.15
 
 #If folds for XGB classifier cross validation should be manually defined (e.g. [['S1', 'S3'], ['S4', 'S2']]), else use specify number of folds to generate
@@ -143,25 +143,25 @@ weightsDenseNet = 'IMAGENET1K_V1'
 #L2-2: RECONSTRUCTION DATA GENERATION
 #==================================================================
 
-#Should WSI preparation and block extraction (for block-specific WSI) overwrite previously generated files
-overwrite_recon_blocks = True
+#Should WSI preparation and patch extraction (for patch-specific WSI) overwrite previously generated files
+overwrite_recon_patches = True
 
-#Should features be extracted for WSI extracted blocks (for block-specific WSI) and overwrite previously generated files
+#Should features be extracted for WSI extracted patches (for patch-specific WSI) and overwrite previously generated files
 overwrite_recon_features = True
 
-#Should saliency maps be determined for WSI extracted blocks (for block-specific WSI) and overwrite previously generated files
+#Should saliency maps be determined for WSI extracted patches (for patch-specific WSI) and overwrite previously generated files
 overwrite_recon_saliencyMaps = True
 
-#Should the decision fusion mode be used for block classification (default: True)
+#Should the decision fusion mode be used for patch classification (default: True)
 fusionMode_recon = True
 
 #Should visuals of the reconstruction model input data be generated
 visualizeInputData_recon = True
 
-#Should saliency maps and their overlays be visualized for block WSI
+#Should saliency maps and their overlays be visualized for patch WSI
 visualizeSaliencyMaps_recon = True
 
-#Should prediction grids and their overlays be visualized for block WSI
+#Should prediction grids and their overlays be visualized for patch WSI
 visualizePredictionGrids_recon = True
 
 #==================================================================
@@ -308,14 +308,14 @@ recon_maxStagnation = 10
 #L4: RARELY CHANGED PARAMETERS
 ###########################################################################################################
 
-#When splitting WSI images, what size should the resulting blocks be (default: 400)
-#Should remain consistent with block sizes given for training
-blockSize = 400
+#When splitting WSI images, what size should the resulting patches be (default: 400)
+#Should remain consistent with patch sizes given for training
+patchSize = 400
 
-#Specify what symmetrical dimension blocks should be resized to; if no resizing is desired leave as 0 (default: 224)
+#Specify what symmetrical dimension patches should be resized to; if no resizing is desired leave as 0 (default: 224)
 #Leaving as 0 will increase training time (also must change batchsizeClassifier), but can lead to improved scores
 #Original implementation uses 224, though with adaptive average pooling this isn't actually neccessary
-resizeSize_blocks = 224
+resizeSize_patches = 224
 
 #Specify what symmetrical dimension WSI should be resized to when generating saliency maps (default: 224)
 #If fusion method were to be further developed, this should be changed to maintain the original sample aspect ratio. 
@@ -328,7 +328,7 @@ gridThickness = 50
 overlayGray = True
 
 #Should images be saved to lossless (.tif) or compressed (.jpg) image format (default: False)
-#Any images that are anticipated to be reused (such as extracted blocks), should be hardcoded to be saved in a lossless format by default
+#Any images that are anticipated to be reused (such as extracted patches), should be hardcoded to be saved in a lossless format by default
 exportLossless = False
 
 #For .jpg image outputs, what should the compression quality (%) be (default: 95)

@@ -21,42 +21,42 @@ class DataPreprocessing_Classifier(Dataset):
 #Classify image files
 class Classifier():
     
-    #Load blocks specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
-    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
+    #Load patches specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
+    def __init__(self, dataType, patchNames, patchFilenames, patchSampleNames, patchLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', patchLabels=None):
         
         #Store input variables internally
         self.dataType = dataType
-        self.blockNames = blockNames
-        self.blockFilenames = blockFilenames
-        self.blockSampleNames = blockSampleNames
-        self.blockLocations = blockLocations
+        self.patchNames = patchNames
+        self.patchFilenames = patchFilenames
+        self.patchSampleNames = patchSampleNames
+        self.patchLocations = patchLocations
         self.sampleNames = sampleNames
         self.WSIFilenames = WSIFilenames
         self.cropData = cropData
         self.paddingData = paddingData
         self.shapeData = shapeData
         self.suffix = suffix
-        self.blockLabels = blockLabels
+        self.patchLabels = patchLabels
         
         #Prepare data objects for obtaining/processing PyTorch model inputs
         self.device = f"cuda:{gpus[-1]}" if len(gpus) > 0 else "cpu"
         self.torchDevice = torch.device(self.device)
-        self.blockData = DataPreprocessing_Classifier(self.blockFilenames, resizeSize_blocks)
-        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
-        self.numBlockData = len(self.blockDataloader)
+        self.patchData = DataPreprocessing_Classifier(self.patchFilenames, resizeSize_patches)
+        self.patchDataloader = DataLoader(self.patchData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
+        self.numPatchData = len(self.patchDataloader)
         #self.WSIData = DataPreprocessing_Classifier(self.WSIFilenames, resizeSize_WSI)
         #self.WSIDataloader = DataLoader(self.WSIData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
         #self.numWSIData = len(self.WSIDataloader)
         
         #Specify internal object data/directories according to data type
-        if dataType == 'blocks':
-            self.visualizeLabelGrids = visualizeLabelGrids_blocks
-            self.visualizePredictionGrids = visualizePredictionGrids_blocks
-            self.dir_results = dir_blocks_results
-            self.dir_visuals_labelGrids = dir_blocks_visuals_labelGrids
-            self.dir_visuals_overlaidLabelGrids = dir_blocks_visuals_overlaidLabelGrids
-            self.dir_visuals_predictionGrids = dir_blocks_visuals_predictionGrids
-            self.dir_visuals_overlaidPredictionGrids = dir_blocks_visuals_overlaidPredictionGrids
+        if dataType == 'patches':
+            self.visualizeLabelGrids = visualizeLabelGrids_patches
+            self.visualizePredictionGrids = visualizePredictionGrids_patches
+            self.dir_results = dir_patches_results
+            self.dir_visuals_labelGrids = dir_patches_visuals_labelGrids
+            self.dir_visuals_overlaidLabelGrids = dir_patches_visuals_overlaidLabelGrids
+            self.dir_visuals_predictionGrids = dir_patches_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_patches_visuals_overlaidPredictionGrids
         elif dataType == 'recon':
             self.visualizeLabelGrids = False
             self.visualizePredictionGrids = visualizePredictionGrids_recon
@@ -68,7 +68,7 @@ class Classifier():
         else:
             sys.exit('\nError - Unknown data type used when creating classifier object.\n')
     
-    #Classify extracted blocks
+    #Classify extracted patches
     def predict(self, inputs):
         return self.model(inputs)
     
@@ -81,32 +81,32 @@ class Classifier():
     def evaluate(self):
     
         #Save results to disk
-        dataPrintout, dataPrintoutNames = [self.blockNames, self.blockLabels, blockPredictions], ['Names', 'Labels', 'Predictions']
+        dataPrintout, dataPrintoutNames = [self.patchNames, self.patchLabels, patchPredictions], ['Names', 'Labels', 'Predictions']
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
-        dataPrintout.to_csv(self.dir_results + 'predictions_blocks.csv', index=False)
+        dataPrintout.to_csv(self.dir_results + 'predictions_patches.csv', index=False)
         
-        #Evaluate per-block results
-        computeClassificationMetrics(self.blockLabels, blockPredictions, self.dir_results, '_blocks_')
+        #Evaluate per-patch results
+        computeClassificationMetrics(self.patchLabels, patchPredictions, self.dir_results, '_patches_')
     
         #Classify WSI
-        sampleLabels, samplePredictions, _ = self.classifyWSI(sampleNames, self.blockSampleNames, self.blockLabels, blockPredictions)
+        sampleLabels, samplePredictions, _ = self.classifyWSI(sampleNames, self.patchSampleNames, self.patchLabels, patchPredictions)
         
         #Evaluate per-sample results
-        self.processResultsWSI(sampleNames, WSIFilenames, sampleLabels, samplePredictions, self.blockSampleNames, self.blockLabels, blockPredictions, self.blockLocations)
+        self.processResultsWSI(sampleNames, WSIFilenames, sampleLabels, samplePredictions, self.patchSampleNames, self.patchLabels, patchPredictions, self.patchLocations)
     
-    #Classify WSI, that had component blocks classified, according to specified threshold of allowable malignant blocks
-    def classifyWSI(self, sampleNames, blockSampleNames, blockLabels, blockPredictions): 
-        sampleLabels, samplePredictions, sampleBlockIndices = [], [], []
+    #Classify WSI, that had component patches classified, according to specified threshold of allowable malignant patches
+    def classifyWSI(self, sampleNames, patchSampleNames, patchLabels, patchPredictions): 
+        sampleLabels, samplePredictions, samplePatchIndices = [], [], []
         for sampleIndex, sampleName in enumerate(sampleNames):
-            blockIndices = np.where(blockSampleNames == sampleName)[0]
-            sampleBlockIndices.append(blockIndices)
-            if len(blockLabels) > 0: sampleLabels.append((np.mean(blockLabels[blockIndices]) >= thresholdWSI)*1)
-            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
-        return np.asarray(sampleLabels), np.asarray(samplePredictions), sampleBlockIndices
+            patchIndices = np.where(patchSampleNames == sampleName)[0]
+            samplePatchIndices.append(patchIndices)
+            if len(patchLabels) > 0: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI)*1)
+            samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI)*1)
+        return np.asarray(sampleLabels), np.asarray(samplePredictions), samplePatchIndices
     
     #Process the WSI classification results
-    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, blockSampleNames, blockLabels, blockPredictions, blockLocations):
+    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, patchSampleNames, patchLabels, patchPredictions, patchLocations):
         
         #Save results to disk
         if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
@@ -124,8 +124,8 @@ class Classifier():
         if self.visualizeLabelGrids or self.visualizePredictionGrids:
             for sampleIndex, sampleName in tqdm(enumerate(sampleNames), total=len(sampleNames), desc='Result Visualization', leave=True, ascii=asciiFlag):
                 
-                #Get indices for the sample blocks
-                blockIndices = np.where(blockSampleNames == sampleName)[0]
+                #Get indices for the sample patches
+                patchIndices = np.where(patchSampleNames == sampleName)[0]
                 
                 #Load the sample WSI
                 imageWSI = cv2.cvtColor(cv2.imread(WSIFilenames[sampleIndex], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
@@ -136,16 +136,16 @@ class Classifier():
                 #Create grid overlays
                 if self.visualizePredictionGrids:
                     gridOverlay_Predictions = np.zeros(imageWSI.shape, dtype=np.uint8)
-                    colorsPredictions = (cmapClasses(blockPredictions)[:,:3].astype(np.uint8)*255).tolist()
+                    colorsPredictions = (cmapClasses(patchPredictions)[:,:3].astype(np.uint8)*255).tolist()
                 if self.visualizeLabelGrids: 
                     gridOverlay_GT = np.zeros(imageWSI.shape, dtype=np.uint8)
-                    colorsLabels = (cmapClasses(blockLabels)[:,:3].astype(np.uint8)*255).tolist()
-                for blockIndex in blockIndices:
-                    startRow, startColumn = blockLocations[blockIndex] 
-                    posStart, posEnd = (startColumn, startRow), (startColumn+blockSize, startRow+blockSize)
-                    if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[blockIndex])
+                    colorsLabels = (cmapClasses(patchLabels)[:,:3].astype(np.uint8)*255).tolist()
+                for patchIndex in patchIndices:
+                    startRow, startColumn = patchLocations[patchIndex] 
+                    posStart, posEnd = (startColumn, startRow), (startColumn+patchSize, startRow+patchSize)
+                    if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[patchIndex])
                     if self.visualizePredictionGrids:
-                        gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[blockIndex])
+                        gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[patchIndex])
                     
                 #Store overlays to disk
                 if self.visualizeLabelGrids: _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
@@ -163,32 +163,32 @@ class Classifier():
     def generateReconData(self):
         
         #Place data on the GPU if able
-        dataInput = np.asarray(self.blockFeatures.astype(np.float32))
+        dataInput = np.asarray(self.patchFeatures.astype(np.float32))
         if len(gpus) > 0: dataInput = cp.asarray(dataInput)
         
-        #Classify blocks
-        blockPredictions = np.asarray(self.predict(dataInput))
+        #Classify patches
+        patchPredictions = np.asarray(self.predict(dataInput))
         
         #Clear the XGBClassifier model and data on GPU
         del self.model_XGBClassifier, dataInput
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_blocks()
+            cp._default_memory_pool.free_all_patches()
         
         #Classify the WSI
-        _, samplePredictions, sampleBlockIndices = self.classifyWSI(self.sampleNames, self.blockSampleNames, [], blockPredictions)
+        _, samplePredictions, samplePatchIndices = self.classifyWSI(self.sampleNames, self.patchSampleNames, [], patchPredictions)
         
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, self.blockSampleNames, self.blockNames, [], blockPredictions, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, self.patchSampleNames, self.patchNames, [], patchPredictions, self.patchLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:
             predictionMaps = []
             for sampleIndex, sampleName in tqdm(enumerate(self.sampleNames), total=len(self.sampleNames), desc='Data Assembly', leave=True, ascii=asciiFlag):
-                blockIndices = sampleBlockIndices[sampleIndex]
-                predictionLocations = self.blockLocations[blockIndices]//blockSize
+                patchIndices = samplePatchIndices[sampleIndex]
+                predictionLocations = self.patchLocations[patchIndices]//patchSize
                 predictionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
-                predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictions[blockIndices]
+                predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictions[patchIndices]
                 predictionMaps.append(predictionMap)
                 if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName, cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
             predictionMaps = np.asarray(predictionMaps, dtype='object')
@@ -198,8 +198,8 @@ class Classifier():
     def exportClassifier(self):
         
         #Convert model to onnx and save to disk; if result is over 100 Mb, then need to apply zip method demonstrated below for saving pythonic model-form
-        if resizeSize_blocks != 0: torch_input = torch.randn(1, 3, resizeSize_blocks, resizeSize_blocks)
-        else: torch_input = torch.randn(1, 3, blockSize, blockSize)
+        if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
+        else: torch_input = torch.randn(1, 3, patchSize, patchSize)
         torch.onnx.export(self.model, torch_input, dir_classifier_models + 'model_updated.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
         
         #Store the torch model across multiple 100 Mb files to bypass Github upload file size limits

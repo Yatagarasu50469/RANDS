@@ -21,29 +21,29 @@ class DataPreprocessing_Classifier(Dataset):
 #Classify image files
 class Classifier():
     
-    #Load blocks specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
-    def __init__(self, dataType, blockNames, blockFilenames, blockSampleNames, blockLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', blockLabels=None):
+    #Load patches specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
+    def __init__(self, dataType, patchNames, patchFilenames, patchSampleNames, patchLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', patchLabels=None):
         
         #Store input variables internally
         self.dataType = dataType
-        self.blockNames = blockNames
-        self.blockFilenames = blockFilenames
-        self.blockSampleNames = blockSampleNames
-        self.blockLocations = blockLocations
+        self.patchNames = patchNames
+        self.patchFilenames = patchFilenames
+        self.patchSampleNames = patchSampleNames
+        self.patchLocations = patchLocations
         self.sampleNames = sampleNames
         self.WSIFilenames = WSIFilenames
         self.cropData = cropData
         self.paddingData = paddingData
         self.shapeData = shapeData
         self.suffix = suffix
-        self.blockLabels = blockLabels
+        self.patchLabels = patchLabels
         
         #Prepare data objects for obtaining/processing PyTorch model inputs
         self.device = f"cuda:{gpus[-1]}" if len(gpus) > 0 else "cpu"
         self.torchDevice = torch.device(self.device)
-        self.blockData = DataPreprocessing_Classifier(self.blockFilenames, resizeSize_blocks)
-        self.blockDataloader = DataLoader(self.blockData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
-        self.numBlockData = len(self.blockDataloader)
+        self.patchData = DataPreprocessing_Classifier(self.patchFilenames, resizeSize_patches)
+        self.patchDataloader = DataLoader(self.patchData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
+        self.numPatchData = len(self.patchDataloader)
         self.WSIData = DataPreprocessing_Classifier(self.WSIFilenames, resizeSize_WSI)
         self.WSIDataloader = DataLoader(self.WSIData, batch_size=batchsizeClassifier, num_workers=numberCPUS, shuffle=False, pin_memory=True)
         self.numWSIData = len(self.WSIDataloader)
@@ -52,24 +52,24 @@ class Classifier():
         if len(gpus) > 0: cp.cuda.Device(gpus[-1]).use()
         
         #Specify internal object data/directories according to data type
-        if dataType == 'blocks':
-            self.fusionMode = fusionMode_blocks
-            self.overwrite_features = overwrite_blocks_features
-            self.overwrite_saliencyMaps = overwrite_blocks_saliencyMaps
-            self.visualizeSaliencyMaps = visualizeSaliencyMaps_blocks
-            self.visualizeLabelGrids = visualizeLabelGrids_blocks
-            self.visualizePredictionGrids = visualizePredictionGrids_blocks
-            self.dir_results = dir_blocks_results
-            self.dir_features = dir_blocks_features
-            self.dir_saliencyMaps = dir_blocks_salicencyMaps
-            self.dir_visuals_saliencyMaps = dir_blocks_visuals_saliencyMaps
-            self.dir_visuals_overlaidSaliencyMaps = dir_blocks_visuals_overlaidSaliencyMaps
-            self.dir_visuals_labelGrids = dir_blocks_visuals_labelGrids
-            self.dir_visuals_overlaidLabelGrids = dir_blocks_visuals_overlaidLabelGrids
-            self.dir_visuals_predictionGrids = dir_blocks_visuals_predictionGrids
-            self.dir_visuals_overlaidPredictionGrids = dir_blocks_visuals_overlaidPredictionGrids
-            self.dir_visuals_fusionGrids = dir_blocks_visuals_fusionGrids
-            self.dir_visuals_overlaidFusionGrids = dir_blocks_visuals_overlaidFusionGrids
+        if dataType == 'patches':
+            self.fusionMode = fusionMode_patches
+            self.overwrite_features = overwrite_patches_features
+            self.overwrite_saliencyMaps = overwrite_patches_saliencyMaps
+            self.visualizeSaliencyMaps = visualizeSaliencyMaps_patches
+            self.visualizeLabelGrids = visualizeLabelGrids_patches
+            self.visualizePredictionGrids = visualizePredictionGrids_patches
+            self.dir_results = dir_patches_results
+            self.dir_features = dir_patches_features
+            self.dir_saliencyMaps = dir_patches_salicencyMaps
+            self.dir_visuals_saliencyMaps = dir_patches_visuals_saliencyMaps
+            self.dir_visuals_overlaidSaliencyMaps = dir_patches_visuals_overlaidSaliencyMaps
+            self.dir_visuals_labelGrids = dir_patches_visuals_labelGrids
+            self.dir_visuals_overlaidLabelGrids = dir_patches_visuals_overlaidLabelGrids
+            self.dir_visuals_predictionGrids = dir_patches_visuals_predictionGrids
+            self.dir_visuals_overlaidPredictionGrids = dir_patches_visuals_overlaidPredictionGrids
+            self.dir_visuals_fusionGrids = dir_patches_visuals_fusionGrids
+            self.dir_visuals_overlaidFusionGrids = dir_patches_visuals_overlaidFusionGrids
         elif dataType == 'recon':
             self.fusionMode = fusionMode_recon
             self.overwrite_features = overwrite_recon_features
@@ -91,14 +91,14 @@ class Classifier():
         else:
             sys.exit('\nError - Unknown data type used when creating classifier object.\n')
         
-        #Extract or load features for the indicated block files
+        #Extract or load features for the indicated patch files
         if self.overwrite_features: self.computeFeatures()
-        else: self.blockFeatures = np.load(self.dir_features + 'blockFeatures'+self.suffix+'.npy', allow_pickle=True)
+        else: self.patchFeatures = np.load(self.dir_features + 'patchFeatures'+self.suffix+'.npy', allow_pickle=True)
         
-        #Extract or load saliency map data for the indicated block files
+        #Extract or load saliency map data for the indicated patch files
         if self.fusionMode: 
             if self.overwrite_saliencyMaps: self.computeSalicencyMaps()
-            else: self.blockWeights = np.load(self.dir_saliencyMaps + 'blockWeights'+self.suffix+'.npy', allow_pickle=True)
+            else: self.patchWeights = np.load(self.dir_saliencyMaps + 'patchWeights'+self.suffix+'.npy', allow_pickle=True)
         
     def computeFeatures(self):
         
@@ -106,20 +106,20 @@ class Classifier():
         model_ResNet = models.resnet50(weights=weightsResNet).to(self.torchDevice)
         _ = model_ResNet.train(False)
 
-        #Extract features for each batch of sample block images
-        self.blockFeatures = []
-        for data in tqdm(self.blockDataloader, total=self.numBlockData, desc='Feature Determination', leave=True, ascii=asciiFlag):
-            self.blockFeatures += model_ResNet(data.to(self.torchDevice)).detach().cpu().tolist()
+        #Extract features for each batch of sample patch images
+        self.patchFeatures = []
+        for data in tqdm(self.patchDataloader, total=self.numPatchData, desc='Feature Determination', leave=True, ascii=asciiFlag):
+            self.patchFeatures += model_ResNet(data.to(self.torchDevice)).detach().cpu().tolist()
         
         #Clear the ResNet model
         del model_ResNet
         if len(gpus) > 0: torch.cuda.empty_cache()
         
         #Convert list of features to an array
-        self.blockFeatures = np.asarray(self.blockFeatures)
+        self.patchFeatures = np.asarray(self.patchFeatures)
         
         #Save features to disk
-        np.save(self.dir_features + 'blockFeatures'+self.suffix, self.blockFeatures)
+        np.save(self.dir_features + 'patchFeatures'+self.suffix, self.patchFeatures)
     
     def computeSalicencyMaps(self):
         
@@ -140,7 +140,7 @@ class Classifier():
         #Create GradCAMPlusPlus model; see https://github.com/jacobgil/pytorch-grad-cam for additional models and options
         model_GradCamPlusPlus = GradCAMPlusPlus(model=model_DenseNet, target_layers=[model_DenseNet.features[-1]])
 
-        #Extract features for each batch of sample block images
+        #Extract features for each batch of sample patch images
         #For current GradCamPlusPlus implementation, must manually clear internal copy of the outputs from GPU cache to prevent OOM
         #Do not need to move data to device here, as managed by GradCAMPlusPlus (having already been placed on device)
         self.saliencyMaps = []
@@ -155,7 +155,7 @@ class Classifier():
         if len(gpus) > 0: torch.cuda.empty_cache()
         
         #Process each of the resulting maps
-        self.blockWeights = []
+        self.patchWeights = []
         for index, saliencyMap in tqdm(enumerate(self.saliencyMaps), total=len(self.saliencyMaps), desc='Saliency Processing', leave=True, ascii=asciiFlag): 
             
             #If visualizations are enabled
@@ -179,27 +179,27 @@ class Classifier():
                 overlaid = show_cam_on_image(overlaid, saliencyMap, use_rgb=True, colormap=cv2.COLORMAP_HOT, image_weight=1.0-overlayWeight)
                 _ = exportImage(self.dir_visuals_overlaidSaliencyMaps+'overlaidSaliency_'+self.sampleNames[index], overlaid, exportLossless)
                 
-            #Extract saliency map data specific to sample block locations, compute regional importance as the average value, and threshold to get weights
-            blockWeights = []
-            for locationIndex, locationData in enumerate(self.blockLocations[np.where(self.blockSampleNames == self.sampleNames[index])[0]]):
+            #Extract saliency map data specific to sample patch locations, compute regional importance as the average value, and threshold to get weights
+            patchWeights = []
+            for locationIndex, locationData in enumerate(self.patchLocations[np.where(self.patchSampleNames == self.sampleNames[index])[0]]):
                 startRow, startColumn = locationData
-                blockSaliencyMap = saliencyMap[startRow:startRow+blockSize, startColumn:startColumn+blockSize]
-                blockImportance = np.mean(blockSaliencyMap)
-                if blockImportance < 0.25: blockWeights.append(0)
-                else: blockWeights.append(blockImportance)
-            self.blockWeights += blockWeights
+                patchSaliencyMap = saliencyMap[startRow:startRow+patchSize, startColumn:startColumn+patchSize]
+                patchImportance = np.mean(patchSaliencyMap)
+                if patchImportance < 0.25: patchWeights.append(0)
+                else: patchWeights.append(patchImportance)
+            self.patchWeights += patchWeights
             
-        #Convert list of block weights to an array and save to disk
-        self.blockWeights = np.asarray(self.blockWeights)
-        np.save(self.dir_saliencyMaps + 'blockWeights'+self.suffix, self.blockWeights)
+        #Convert list of patch weights to an array and save to disk
+        self.patchWeights = np.asarray(self.patchWeights)
+        np.save(self.dir_saliencyMaps + 'patchWeights'+self.suffix, self.patchWeights)
     
-    #Classify extracted block features
+    #Classify extracted patch features
     def predict(self, inputs, weights=None):
         
-        #Compute the raw block predictions
+        #Compute the raw patch predictions
         predictions = self.model_XGBClassifier.predict(inputs.astype(np.float32))
         
-        #If fusion mode is active, multiply the block predictions (using -1 for benign and +1 for malignant) by the matching weights; positive results are malignant
+        #If fusion mode is active, multiply the patch predictions (using -1 for benign and +1 for malignant) by the matching weights; positive results are malignant
         if self.fusionMode: 
             predictionsFusion = np.where(predictions==0, -1, 1)*weights
             predictionsFusion = np.where(predictionsFusion>0, 1, 0)
@@ -207,16 +207,16 @@ class Classifier():
         else: 
             return predictions.tolist()
     
-    #Classify WSI, that had component blocks classified, according to specified threshold of allowable malignant blocks
-    def classifyWSI(self, sampleNames, blockSampleNames, blockLabels, blockPredictions, blockPredictionsFusion): 
-        sampleLabels, samplePredictions, samplePredictionsFusion, sampleBlockIndices = [], [], [], []
+    #Classify WSI, that had component patches classified, according to specified threshold of allowable malignant patches
+    def classifyWSI(self, sampleNames, patchSampleNames, patchLabels, patchPredictions, patchPredictionsFusion): 
+        sampleLabels, samplePredictions, samplePredictionsFusion, samplePatchIndices = [], [], [], []
         for sampleIndex, sampleName in enumerate(sampleNames):
-            blockIndices = np.where(blockSampleNames == sampleName)[0]
-            sampleBlockIndices.append(blockIndices)
-            if len(blockLabels) > 0: sampleLabels.append((np.mean(blockLabels[blockIndices]) >= thresholdWSI)*1)
-            samplePredictions.append((np.mean(blockPredictions[blockIndices]) >= thresholdWSI)*1)
-            if self.fusionMode: samplePredictionsFusion.append((np.mean(blockPredictionsFusion[blockIndices]) >= thresholdWSI)*1)
-        return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), sampleBlockIndices
+            patchIndices = np.where(patchSampleNames == sampleName)[0]
+            samplePatchIndices.append(patchIndices)
+            if len(patchLabels) > 0: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI)*1)
+            samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI)*1)
+            if self.fusionMode: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI)*1)
+        return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), samplePatchIndices
     
     #Perform cross-validation
     def crossValidation(self):
@@ -226,22 +226,22 @@ class Classifier():
         else: folds = manualFolds
         numFolds = len(folds)
 
-        #Split block features into specified folds, keeping track of originating indices and matched labels
-        foldsFeatures, foldsLabels, foldsWeights, foldsBlockSampleNames, foldsBlockNames, foldsBlockLocations = [], [], [], [], [], []
+        #Split patch features into specified folds, keeping track of originating indices and matched labels
+        foldsFeatures, foldsLabels, foldsWeights, foldsPatchSampleNames, foldsPatchNames, foldsPatchLocations = [], [], [], [], [], []
         for fold in folds:
-            blockIndices = np.concatenate([np.where(self.blockSampleNames == sampleName)[0] for sampleName in fold])
-            foldsBlockLocations.append(list(self.blockLocations[blockIndices]))
-            foldsFeatures.append(list(self.blockFeatures[blockIndices]))
-            foldsLabels.append(list(self.blockLabels[blockIndices]))
-            if self.fusionMode: foldsWeights.append(list(self.blockWeights[blockIndices]))
-            foldsBlockSampleNames.append(list(self.blockSampleNames[blockIndices]))
-            foldsBlockNames.append(list(self.blockNames[blockIndices]))            
+            patchIndices = np.concatenate([np.where(self.patchSampleNames == sampleName)[0] for sampleName in fold])
+            foldsPatchLocations.append(list(self.patchLocations[patchIndices]))
+            foldsFeatures.append(list(self.patchFeatures[patchIndices]))
+            foldsLabels.append(list(self.patchLabels[patchIndices]))
+            if self.fusionMode: foldsWeights.append(list(self.patchWeights[patchIndices]))
+            foldsPatchSampleNames.append(list(self.patchSampleNames[patchIndices]))
+            foldsPatchkNames.append(list(self.patchNames[patchIndices]))            
         
         #Collapse data for later (correct/matched ordered) evaluation of the fold data
         foldsSampleNames = np.asarray(sum(folds, []))
-        foldsBlockLocations = np.concatenate(foldsBlockLocations)
-        foldsBlockSampleNames = np.concatenate(foldsBlockSampleNames)
-        foldsBlockNames = np.concatenate(foldsBlockNames)
+        foldsPatchLocations = np.concatenate(foldsPatchLocations)
+        foldsPatchSampleNames = np.concatenate(foldsPatchSampleNames)
+        foldsPatchNames = np.concatenate(foldsPatchNames)
         foldsWSIFilenames = np.concatenate([self.WSIFilenames[np.where(self.sampleNames == sampleName)[0]] for sampleName in foldsSampleNames])
         
         #Check class distribution between the folds
@@ -250,8 +250,8 @@ class Classifier():
         #    print(np.sum(np.array(foldsLabels[foldNum]) == valueBenign),'\t', np.sum(np.array(foldsLabels[foldNum]) == valueMalignant), '\t', len(foldsLabels[foldNum]))
         
         #Perform training/testing among the folds, testing sequentially (to ensure the correct order) and storing results for later evaluation
-        foldsBlockPredictions, foldsBlockPredictionsFusion = [], []
-        for foldNum in tqdm(range(0, numFolds), desc='Block Classification', leave=True, ascii=asciiFlag):
+        foldsPatchPredictions, foldsPatchPredictionsFusion = [], []
+        for foldNum in tqdm(range(0, numFolds), desc='Patch Classification', leave=True, ascii=asciiFlag):
             
             #Train on all folds except the one specified
             self.train(np.concatenate(foldsFeatures[:foldNum]+foldsFeatures[foldNum+1:]), np.concatenate(foldsLabels[:foldNum]+foldsLabels[foldNum+1:]))
@@ -260,42 +260,42 @@ class Classifier():
             dataInput = np.asarray(foldsFeatures[foldNum])
             if len(gpus) > 0: dataInput = cp.asarray(dataInput)
             
-            #Classify blocks in the specified, remaining fold
+            #Classify patches in the specified, remaining fold
             if self.fusionMode: 
                 predictions, predictionsFusion = self.predict(dataInput, np.asarray(foldsWeights[foldNum]))
-                foldsBlockPredictionsFusion += predictionsFusion
+                foldsPatchPredictionsFusion += predictionsFusion
             else:
                 predictions = self.predict(dataInput)
-            foldsBlockPredictions += predictions
+            foldsPatchPredictions += predictions
             
             #Clear the XGBClassifier model and data on GPU
             del self.model_XGBClassifier, dataInput
             if len(gpus) > 0: 
                 torch.cuda.empty_cache() 
-                cp._default_memory_pool.free_all_blocks()
+                cp._default_memory_pool.free_all_patches()
         
         #Convert lists of predictions to arrays and collapse labels for evaluation
         foldsLabels = np.concatenate(foldsLabels)
-        foldsBlockPredictions = np.asarray(foldsBlockPredictions)
-        foldsBlockPredictionsFusion = np.asarray(foldsBlockPredictionsFusion)
+        foldsPatchPredictions = np.asarray(foldsPatchPredictions)
+        foldsPatchPredictionsFusion = np.asarray(foldsPatchPredictionsFusion)
         
         #Classify WSI
-        foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, _ = self.classifyWSI(foldsSampleNames, foldsBlockSampleNames, foldsLabels, foldsBlockPredictions, foldsBlockPredictionsFusion)
+        foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, _ = self.classifyWSI(foldsSampleNames, foldsPatchSampleNames, foldsLabels, foldsPatchPredictions, foldsPatchPredictionsFusion)
         
         #Evaluate per-sample results
-        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, foldsBlockSampleNames, foldsBlockNames, foldsLabels, foldsBlockPredictions, foldsBlockPredictionsFusion, foldsBlockLocations)
+        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, foldsPatchSampleNames, foldsPatchNames, foldsLabels, foldsPatchPredictions, foldsPatchPredictionsFusion, foldsPatchLocations)
     
-    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, blockSampleNames, blockNames, blockLabels, blockPredictions, blockPredictionsFusion, blockLocations):
+    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, patchSampleNames, patchNames, patchLabels, patchPredictions, patchPredictionsFusion, patchLocations):
         
-        #Save block results to disk
-        if len(blockLabels) > 0: dataPrintout, dataPrintoutNames = [blockNames, blockLabels, blockPredictions], ['Names', 'Labels', 'Predictions']
-        else: dataPrintout, dataPrintoutNames = [blockNames, blockPredictions], ['Names', 'Predictions']
+        #Save patch results to disk
+        if len(patchLabels) > 0: dataPrintout, dataPrintoutNames = [patchNames, patchLabels, patchPredictions], ['Names', 'Labels', 'Predictions']
+        else: dataPrintout, dataPrintoutNames = [patchNames, patchPredictions], ['Names', 'Predictions']
         if self.fusionMode: 
-            dataPrintout.append(blockPredictionsFusion)
+            dataPrintout.append(patchPredictionsFusion)
             dataPrintoutNames.append('Fusion Predictions')
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
-        dataPrintout.to_csv(self.dir_results + 'predictions_blocks.csv', index=False)
+        dataPrintout.to_csv(self.dir_results + 'predictions_patches.csv', index=False)
         
         #Save WSI results to disk
         if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
@@ -307,11 +307,11 @@ class Classifier():
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_WSI.csv', index=False)
         
-        #Evaluate block results if labels/predictions are available
-        if len(blockLabels) > 0 and len(blockPredictions) > 0: 
-            if len(blockLabels) != len(blockPredictions): sys.exit('\nError - The number of block labels does not match the number of predictions.\n')
-            computeClassificationMetrics(blockLabels, blockPredictions, self.dir_results, '_blocks_initial')
-            if self.fusionMode: computeClassificationMetrics(blockLabels, blockPredictionsFusion, self.dir_results, '_blocks_fusion')
+        #Evaluate patch results if labels/predictions are available
+        if len(patchLabels) > 0 and len(patchPredictions) > 0: 
+            if len(patchLabels) != len(patchPredictions): sys.exit('\nError - The number of patch labels does not match the number of predictions.\n')
+            computeClassificationMetrics(patchLabels, patchPredictions, self.dir_results, '_patches_initial')
+            if self.fusionMode: computeClassificationMetrics(patchLabels, patchPredictionsFusion, self.dir_results, '_patches_fusion')
         
         #Evaluate WSI results if labels/predictions are available
         if len(sampleLabels) > 0 and len(samplePredictions) > 0: 
@@ -323,8 +323,8 @@ class Classifier():
         if self.visualizeLabelGrids or self.visualizePredictionGrids:
             for sampleIndex, sampleName in tqdm(enumerate(sampleNames), total=len(sampleNames), desc='Result Visualization', leave=True, ascii=asciiFlag):
                 
-                #Get indices for the sample blocks
-                blockIndices = np.where(blockSampleNames == sampleName)[0]
+                #Get indices for the sample patches
+                patchIndices = np.where(patchSampleNames == sampleName)[0]
                 
                 #Load the sample WSI
                 imageWSI = cv2.cvtColor(cv2.imread(WSIFilenames[sampleIndex], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
@@ -335,20 +335,20 @@ class Classifier():
                 #Create grid overlays
                 if self.visualizePredictionGrids:
                     gridOverlay_Predictions = np.zeros(imageWSI.shape, dtype=np.uint8)
-                    colorsPredictions = (cmapClasses(blockPredictions)[:,:3].astype(np.uint8)*255).tolist()
+                    colorsPredictions = (cmapClasses(patchPredictions)[:,:3].astype(np.uint8)*255).tolist()
                     if self.fusionMode: 
                         gridOverlay_PredictionsFusion = np.zeros(imageWSI.shape, dtype=np.uint8)
-                        colorsFusion = (cmapClasses(blockPredictionsFusion)[:,:3].astype(np.uint8)*255).tolist()
+                        colorsFusion = (cmapClasses(patchPredictionsFusion)[:,:3].astype(np.uint8)*255).tolist()
                 if self.visualizeLabelGrids: 
                     gridOverlay_GT = np.zeros(imageWSI.shape, dtype=np.uint8)
-                    colorsLabels = (cmapClasses(blockLabels)[:,:3].astype(np.uint8)*255).tolist()
-                for blockIndex in blockIndices:
-                    startRow, startColumn = blockLocations[blockIndex] 
-                    posStart, posEnd = (startColumn, startRow), (startColumn+blockSize, startRow+blockSize)
-                    if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[blockIndex])
+                    colorsLabels = (cmapClasses(patchLabels)[:,:3].astype(np.uint8)*255).tolist()
+                for patchIndex in patchIndices:
+                    startRow, startColumn = patchLocations[patchIndex] 
+                    posStart, posEnd = (startColumn, startRow), (startColumn+patchSize, startRow+patchSize)
+                    if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[patchIndex])
                     if self.visualizePredictionGrids:
-                        gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[blockIndex])
-                        if self.fusionMode: gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[blockIndex])
+                        gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[patchIndex])
+                        if self.fusionMode: gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[patchIndex])
                     
                 #Store overlays to disk
                 if self.visualizeLabelGrids: _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
@@ -376,7 +376,7 @@ class Classifier():
     def exportClassifier(self):
         
         #Setup, train, save, and clear the XGBClassifier model
-        self.train(self.blockFeatures, self.blockLabels)
+        self.train(self.patchFeatures, self.patchLabels)
         
         #Save to disk in .json format for easy reloading
         self.model_XGBClassifier.save_model(dir_classifier_models + 'model_XGBClassifier.json')
@@ -388,15 +388,15 @@ class Classifier():
         del self.model_XGBClassifier, model_onnx_XGBClassifier
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_blocks()
+            cp._default_memory_pool.free_all_patches()
         
         #Setup pre-trained ResNet model
         model_ResNet = models.resnet50(weights=weightsResNet)
         _ = model_ResNet.train(False)
         
         #Save onnx format to disk
-        if resizeSize_blocks != 0: torch_input = torch.randn(1, 3, resizeSize_blocks, resizeSize_blocks)
-        else: torch_input = torch.randn(1, 3, blockSize, blockSize)
+        if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
+        else: torch_input = torch.randn(1, 3, patchSize, patchSize)
         torch.onnx.export(model_ResNet, torch_input, dir_classifier_models + 'model_ResNet.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
         
         #Clear model from memory
@@ -412,39 +412,39 @@ class Classifier():
     def generateReconData(self):
         
         #Place data on the GPU if able
-        dataInput = np.asarray(self.blockFeatures.astype(np.float32))
+        dataInput = np.asarray(self.patchFeatures.astype(np.float32))
         if len(gpus) > 0: dataInput = cp.asarray(dataInput)
         
-        #Classify blocks
-        if self.fusionMode: blockPredictions, blockPredictionsFusion = self.predict(dataInput, self.blockWeights)
-        else: blockPredictions, blockPredictionsFusion = self.predict(dataInput), []
-        blockPredictions, blockPredictionsFusion = np.asarray(blockPredictions), np.asarray(blockPredictionsFusion)
+        #Classify patches
+        if self.fusionMode: patchPredictions, patchPredictionsFusion = self.predict(dataInput, self.patchWeights)
+        else: patchPredictions, patchPredictionsFusion = self.predict(dataInput), []
+        patchPredictions, patchPredictionsFusion = np.asarray(patchPredictions), np.asarray(patchPredictionsFusion)
         
         #Clear the XGBClassifier model and data on GPU
         del self.model_XGBClassifier, dataInput
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_blocks()
+            cp._default_memory_pool.free_all_patches()
         
         #Classify WSI
-        _, samplePredictions, samplePredictionsFusion, sampleBlockIndices = self.classifyWSI(self.sampleNames, self.blockSampleNames, [], blockPredictions, blockPredictionsFusion)
+        _, samplePredictions, samplePredictionsFusion, samplePatchIndices = self.classifyWSI(self.sampleNames, self.patchSampleNames, [], patchPredictions, patchPredictionsFusion)
 
         #Evaluate per-sample results
-        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.blockSampleNames, self.blockNames, [], blockPredictions, blockPredictionsFusion, self.blockLocations)
+        self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.patchSampleNames, self.patchNames, [], patchPredictions, patchPredictionsFusion, self.patchLocations)
         
         #Create prediction arrays for reconstruction model and save them to disk
         if classifierRecon:
             predictionMaps, predictionsFusionMaps = [], []
             for sampleIndex, sampleName in tqdm(enumerate(self.sampleNames), total=len(self.sampleNames), desc='Data Assembly', leave=True, ascii=asciiFlag):
-                blockIndices = sampleBlockIndices[sampleIndex]
-                predictionLocations = self.blockLocations[blockIndices]//blockSize
+                patchIndices = samplePatchIndices[sampleIndex]
+                predictionLocations = self.patchLocations[patchIndices]//patchSize
                 predictionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
-                predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictions[blockIndices]
+                predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictions[patchIndices]
                 predictionMaps.append(predictionMap)
                 if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName, cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
                 if self.fusionMode:
                     predictionFusionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
-                    predictionFusionMap[predictionLocations[:,0], predictionLocations[:,1]] = blockPredictionsFusion[blockIndices]
+                    predictionFusionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictionsFusion[patchIndices]
                     predictionsFusionMaps.append(predictionFusionMap)
                     if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'fusionMap_'+sampleName, cmapClasses(predictionFusionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
             predictionMaps = np.asarray(predictionMaps, dtype='object')

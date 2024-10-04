@@ -6,8 +6,8 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       1 October 2024
-<b>VERSION:</b>        0.0.2
+<b>MODIFIED:</b>       4 October 2024
+<b>VERSION:</b>        0.0.3
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
 <b>FUNDING:</b>        Development of RANDS has been funded by and developed for NIH Grant 5R01EB033806
@@ -66,20 +66,20 @@
   |  |----->RUN_RECON.py                      #Train/Evaluate reconstruction model
   |  |----->OTHER                             #Files not directly used in program execution
   |  |----->SCRIPTS                           #Jupyter notebook files intended for one-time use and/or development
-  |  |  |----->blockDeeperExtraction.ipynb    #Locate and label spatial data for extracted block images
-  |  |  |----->blockSegmentationTest.ipynb    #Visualize impact of parameter variation on the selection of blocks from WSI
+  |  |  |----->patchDeeperExtraction.ipynb    #Locate and label spatial data for extracted patch images
+  |  |  |----->patchSegmentationTest.ipynb    #Visualize impact of parameter variation on the selection of patches from WSI
   |  |  |----->ARCHIVE                        #Development files no longer used, but to be retained for reference/documentation
   |----->DATA                                 #Data directory
-  |  |----->BLOCKS                            #Training/evalutation data for block classification network
-  |  |  |----->INPUT_BLOCKS                   #Labeled blocks; extracted from the exact images in INPUT_WSI
+  |  |----->PATCHES                           #Training/evalutation data for patch classification network
+  |  |  |----->INPUT_PATCHES                  #Labeled patches; extracted from the exact images in INPUT_WSI
   |  |  |  |-----><i>sample#</i>_<i>side#</i>               #Directory corresponding to originating WSI
-  |  |  |  |  |----->PS<i>blockData</i>.tif          #Lossless block image(s); <i>blockData</i> : <i>sample#</i>_<i>side#</i>_<i>blockID#</i>_<i>row#</i>_<i>column#</i>
-  |  |  |  |----->metadata_blocks.csv         #Block metadata for every lossless image in the directory
-  |  |  |----->INPUT_WSI                      #Labeled WSI; the exact images INPUT_BLOCKS data was extracted from
+  |  |  |  |  |----->PS<i>patchData</i>.tif          #Lossless patch image(s); <i>patchData</i> : <i>sample#</i>_<i>side#</i>_<i>patchID#</i>_<i>row#</i>_<i>column#</i>
+  |  |  |  |----->metadata_patches.csv        #Patch metadata for every lossless image in the directory
+  |  |  |----->INPUT_WSI                      #Labeled WSI; the exact images INPUT_PATCHES data was extracted from
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for block images
-  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for block images
-  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in block image classification tasks
+  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for patch images
+  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for patch images
+  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in patch image classification tasks
   |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
   |  |  |  |----->LABEL_GRIDS                 #Ground-truth labels spatially visualized in grid form (Green->Benign, Red->Malignant)
   |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
@@ -91,10 +91,10 @@
   |  |----->RECON                             #Training/evaluation data for reconstruction model (all WSI, including those used for training the classifier)
   |  |  |----->INPUT_WSI                      #WSI not used for training the classifier for use in the reconstruction model
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |----->OUTPUT_BLOCKS                  #Block images/data extracted from WSI
-  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for extracted block images
+  |  |  |----->OUTPUT_PATCHES                 #Patch images/data extracted from WSI
+  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for extracted patch images
   |  |  |----->OUTPUT_INPUT_DATA              #Resultant classifier data to be used as input data for the reconstruction model
-  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for extracted block images
+  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for extracted patch images
   |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in classification tasks
   |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
   |  |  |  |----->INPUT_DATA                  #Classification model predictions; visualizations of input data for reconstruction model
@@ -104,16 +104,16 @@
   |  |  |  |----->PREDICTION_GRIDS            #Predictions visually visualized in grid form
   |  |  |  |----->SALIENCY_MAPS               #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
   |----->RESULTS                              #Results directory
-  |  |----->BLOCKS                            #Block classification training/evaluation results
-  |  |  |----->VISUALS                        #Generated visuals for classification of blocks and their WSI
-  |  |  |  |----->FUSION_GRIDS                   #Fusion predictions visualized in grid form
-  |  |  |  |----->OVERLAID_FUSION_GRIDS          #Fusion predictions visualized on WSI
-  |  |  |  |----->OVERLAID_PREDICTION_GRIDS      #Label grids visualized on WSI
-  |  |  |  |----->PREDICTION_GRIDS               #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
-  |  |  |----->classReport_<i>dataType</i>.csv       #Classification report of common metrics; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
-  |  |  |----->confusionMatrix_<i>dataType</i>.tif   #Confusion matrix visualization; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
-  |  |  |----->predictions_<i>dataType</i>.csv       #Predicted per-block/WSI labels; <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
-  |  |  |----->summaryReport_<i>dataType</i>.csv     #Summary of additional result metrics;  <i>dataType</i> : <i>blocks/WSI</i>_<i>initial/fusion</i>
+  |  |----->PATCHES                           #Patch classification training/evaluation results
+  |  |  |----->VISUALS                        #Generated visuals for classification of patches and their WSI
+  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
+  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Label grids visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS            #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
+  |  |  |----->classReport_<i>dataType</i>.csv       #Classification report of common metrics; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->confusionMatrix_<i>dataType</i>.tif   #Confusion matrix visualization; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->predictions_<i>dataType</i>.csv       #Predicted per-patch/WSI labels; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->summaryReport_<i>dataType</i>.csv     #Summary of additional result metrics;  <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
   |  |----->MODELS                            #Models exported by the program in ONNX (C# compatible) and more python-compatible forms
   |  |----->RECON                             #Reconstruction model results
   |  |  |----->TRAIN                          #Training metrics/visualizations
@@ -235,7 +235,7 @@ All critical parameters may be altered in a configuration file (Ex. ./CONFIG_0.p
     L0: Tasks to be Performed
     L1: Compute Hardware & Global Methods
     L2: Classification
-	|----->L2-1: Blocks
+	|----->L2-1: Patches
 	|  |----->L2-1-1: Original Classification Model
 	|  |----->L2-1-2: Updated Classification Model
 	|----->L2-2: Reconstruction Data Generation

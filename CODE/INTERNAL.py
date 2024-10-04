@@ -10,31 +10,31 @@ dir_data = '.' + os.path.sep + 'DATA' + os.path.sep
 dir_results = '.' + os.path.sep + 'RESULTS' + os.path.sep
 dir_classifier_models = dir_results + 'MODELS' + os.path.sep
 
-#Block classification
-dir_blocks_data = dir_data + 'BLOCKS' + os.path.sep
-dir_blocks_inputBlocks = dir_blocks_data + 'INPUT_BLOCKS' + os.path.sep
-dir_blocks_inputWSI = dir_blocks_data + 'INPUT_WSI' + os.path.sep
+#Patch classification
+dir_patches_data = dir_data + 'PATCHES' + os.path.sep
+dir_patches_inputPatches = dir_patches_data + 'INPUT_PATCHES' + os.path.sep
+dir_patches_inputWSI = dir_patches_data + 'INPUT_WSI' + os.path.sep
 
-dir_blocks_features = dir_blocks_data + 'OUTPUT_FEATURES' + os.path.sep
-dir_blocks_salicencyMaps = dir_blocks_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
+dir_patches_features = dir_patches_data + 'OUTPUT_FEATURES' + os.path.sep
+dir_patches_salicencyMaps = dir_patches_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
 
-dir_blocks_visuals = dir_blocks_data + 'OUTPUT_VISUALS' + os.path.sep
-dir_blocks_visuals_saliencyMaps = dir_blocks_visuals + 'SALIENCY_MAPS' + os.path.sep
-dir_blocks_visuals_overlaidSaliencyMaps = dir_blocks_visuals + 'OVERLAID_SALICENCY_MAPS' + os.path.sep
-dir_blocks_visuals_labelGrids = dir_blocks_visuals + 'LABEL_GRIDS' + os.path.sep
-dir_blocks_visuals_overlaidLabelGrids = dir_blocks_visuals + 'OVERLAID_LABEL_GRIDS' + os.path.sep
+dir_patches_visuals = dir_patches_data + 'OUTPUT_VISUALS' + os.path.sep
+dir_patches_visuals_saliencyMaps = dir_patches_visuals + 'SALIENCY_MAPS' + os.path.sep
+dir_patches_visuals_overlaidSaliencyMaps = dir_patches_visuals + 'OVERLAID_SALICENCY_MAPS' + os.path.sep
+dir_patches_visuals_labelGrids = dir_patches_visuals + 'LABEL_GRIDS' + os.path.sep
+dir_patches_visuals_overlaidLabelGrids = dir_patches_visuals + 'OVERLAID_LABEL_GRIDS' + os.path.sep
 
-dir_blocks_results = dir_results + 'BLOCKS' + os.path.sep
-dir_blocks_results_visuals = dir_blocks_results + 'VISUALS' + os.path.sep
-dir_blocks_visuals_predictionGrids = dir_blocks_results_visuals + 'PREDICTION_GRIDS' + os.path.sep
-dir_blocks_visuals_overlaidPredictionGrids = dir_blocks_results_visuals + 'OVERLAID_PREDICTION_GRIDS' + os.path.sep
-dir_blocks_visuals_fusionGrids = dir_blocks_results_visuals + 'FUSION_GRIDS' + os.path.sep
-dir_blocks_visuals_overlaidFusionGrids = dir_blocks_results_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
+dir_patches_results = dir_results + 'PATCHES' + os.path.sep
+dir_patches_results_visuals = dir_patches_results + 'VISUALS' + os.path.sep
+dir_patches_visuals_predictionGrids = dir_patches_results_visuals + 'PREDICTION_GRIDS' + os.path.sep
+dir_patches_visuals_overlaidPredictionGrids = dir_patches_results_visuals + 'OVERLAID_PREDICTION_GRIDS' + os.path.sep
+dir_patches_visuals_fusionGrids = dir_patches_results_visuals + 'FUSION_GRIDS' + os.path.sep
+dir_patches_visuals_overlaidFusionGrids = dir_patches_results_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
 
 #Reconstruction
 dir_recon_data = dir_data + 'RECON' + os.path.sep
 dir_recon_inputWSI = dir_recon_data + 'INPUT_WSI' + os.path.sep
-dir_recon_blocks = dir_recon_data + 'OUTPUT_BLOCKS' + os.path.sep
+dir_recon_patches = dir_recon_data + 'OUTPUT_PATCHES' + os.path.sep
 dir_recon_features = dir_recon_data + 'OUTPUT_FEATURES' + os.path.sep
 dir_recon_saliencyMaps = dir_recon_data + 'OUTPUT_SALIENCY_MAPS' + os.path.sep
 dir_recon_inputData = dir_recon_data + 'OUTPUT_INPUT_DATA' + os.path.sep
@@ -73,11 +73,11 @@ if __name__ == '__main__':
     #If folders do not exist, but their use is enabled, exit the program
     #=============================================================================
 
-    #Block classification
+    #Patch classification
     if not os.path.exists(dir_data): sys.exit('\nError - Required folder: ' + dir_data + ' does not exist.')
-    if not os.path.exists(dir_blocks_data) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_data + ' does not exist.\n')
-    if not os.path.exists(dir_blocks_inputBlocks) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputBlocks + ' does not exist.\n')
-    if not os.path.exists(dir_blocks_inputWSI) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_blocks_inputWSI + ' does not exist.\n')
+    if not os.path.exists(dir_patches_data) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_patches_data + ' does not exist.\n')
+    if not os.path.exists(dir_patches_inputPatches) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_patches_inputPatches + ' does not exist.\n')
+    if not os.path.exists(dir_patches_inputWSI) and (classifierTrain or classifierExport): sys.exit('\nError - Required folder: ' + dir_patches_inputWSI + ' does not exist.\n')
 
     #Reconstruction
     if not os.path.exists(dir_recon_data) and classifierRecon: sys.exit('\nError - Required folder: ' + dir_recon_data + ' does not exist.\n')
@@ -88,48 +88,48 @@ if __name__ == '__main__':
     #=============================================================================
 
     if (classifierTrain or classifierExport):
-        if not overwrite_blocks_features and len(glob.glob(dir_blocks_features+'*.npy'))==0: overwrite_blocks_features = True    
+        if not overwrite_patches_features and len(glob.glob(dir_patches_features+'*.npy'))==0: overwrite_patches_features = True    
 
     if classifierTrain:
-        if not overwrite_blocks_saliencyMaps and fusionMode_blocks and len(glob.glob(dir_blocks_salicencyMaps+'*.npy'))==0: overwrite_blocks_saliencyMaps = True
+        if not overwrite_patches_saliencyMaps and fusionMode_patches and len(glob.glob(dir_patches_salicencyMaps+'*.npy'))==0: overwrite_patches_saliencyMaps = True
     else:
-        overwrite_blocks_features = False
-        overwrite_blocks_saliencyMaps = False
+        overwrite_patches_features = False
+        overwrite_patches_saliencyMaps = False
 
     if classifierRecon:
-        if not overwrite_recon_blocks and len(glob.glob(dir_recon_blocks+'*.npy'))==0: overwrite_recon_blocks = True
+        if not overwrite_recon_patches and len(glob.glob(dir_recon_patches+'*.npy'))==0: overwrite_recon_patches = True
         if not overwrite_recon_features and len(glob.glob(dir_recon_features+'*.npy'))==0: overwrite_reocn_features = True
         if not overwrite_recon_saliencyMaps and fusionMode_recon and len(glob.glob(dir_recon_saliencyMaps+'*.npy'))==0: overwrite_recon_saliencyMaps = True
     else:
-        overwrite_recon_blocks = False
+        overwrite_recon_patches = False
         overwrite_recon_features = False
         overwrite_recon_saliencyMaps = False
 
     #Clear files/folders that are to be overwritten or impacted
     #=============================================================================
 
-    #Block classification
+    #Patch classification
     if classifierTrain: 
-        if os.path.exists(dir_blocks_results): shutil.rmtree(dir_blocks_results)
+        if os.path.exists(dir_patches_results): shutil.rmtree(dir_patches_results)
         if classifierExport and os.path.exists(dir_classifier_models): shutil.rmtree(dir_classifier_models)
-        if overwrite_blocks_features and os.path.exists(dir_blocks_features): shutil.rmtree(dir_blocks_features)
-        if overwrite_blocks_saliencyMaps: 
-            if os.path.exists(dir_blocks_salicencyMaps): shutil.rmtree(dir_blocks_salicencyMaps)
-            if os.path.exists(dir_blocks_visuals_saliencyMaps): shutil.rmtree(dir_blocks_visuals_saliencyMaps)
-            if os.path.exists(dir_blocks_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_blocks_visuals_overlaidSaliencyMaps)
+        if overwrite_patches_features and os.path.exists(dir_patches_features): shutil.rmtree(dir_patches_features)
+        if overwrite_patches_saliencyMaps: 
+            if os.path.exists(dir_patches_salicencyMaps): shutil.rmtree(dir_patches_salicencyMaps)
+            if os.path.exists(dir_patches_visuals_saliencyMaps): shutil.rmtree(dir_patches_visuals_saliencyMaps)
+            if os.path.exists(dir_patches_visuals_overlaidSaliencyMaps): shutil.rmtree(dir_patches_visuals_overlaidSaliencyMaps)
         
-        if os.path.exists(dir_blocks_visuals_labelGrids): shutil.rmtree(dir_blocks_visuals_labelGrids)
-        if os.path.exists(dir_blocks_visuals_overlaidLabelGrids): shutil.rmtree(dir_blocks_visuals_overlaidLabelGrids)
-        if os.path.exists(dir_blocks_visuals_predictionGrids): shutil.rmtree(dir_blocks_visuals_PredictionGrids)
-        if os.path.exists(dir_blocks_visuals_overlaidPredictionGrids): shutil.rmtree(dir_blocks_visuals_overlaidPredictionGrids)
-        if os.path.exists(dir_blocks_visuals_fusionGrids): shutil.rmtree(dir_blocks_visuals_fusionGrids)
-        if os.path.exists(dir_blocks_visuals_overlaidFusionGrids): shutil.rmtree(dir_blocks_visuals_overlaidFusionGrids)
+        if os.path.exists(dir_patches_visuals_labelGrids): shutil.rmtree(dir_patches_visuals_labelGrids)
+        if os.path.exists(dir_patches_visuals_overlaidLabelGrids): shutil.rmtree(dir_patches_visuals_overlaidLabelGrids)
+        if os.path.exists(dir_patches_visuals_predictionGrids): shutil.rmtree(dir_patches_visuals_PredictionGrids)
+        if os.path.exists(dir_patches_visuals_overlaidPredictionGrids): shutil.rmtree(dir_patches_visuals_overlaidPredictionGrids)
+        if os.path.exists(dir_patches_visuals_fusionGrids): shutil.rmtree(dir_patches_visuals_fusionGrids)
+        if os.path.exists(dir_patches_visuals_overlaidFusionGrids): shutil.rmtree(dir_patches_visuals_overlaidFusionGrids)
         
     #Reconstruction
     if classifierRecon:
         if os.path.exists(dir_recon_results): shutil.rmtree(dir_recon_results)
         if os.path.exists(dir_recon_inputData): shutil.rmtree(dir_recon_inputData)
-        if overwrite_recon_blocks and os.path.exists(dir_recon_blocks): shutil.rmtree(dir_recon_blocks)
+        if overwrite_recon_patches and os.path.exists(dir_recon_patches): shutil.rmtree(dir_recon_patches)
         if overwrite_recon_features and os.path.exists(dir_recon_features): shutil.rmtree(dir_recon_features)
         if overwrite_recon_saliencyMaps: 
             if os.path.exists(dir_recon_saliencyMaps): shutil.rmtree(dir_recon_saliencyMaps)
@@ -148,25 +148,25 @@ if __name__ == '__main__':
     #Store directories to check and create
     checkDirectories = [dir_results]
 
-    #Block classification
-    checkDirectories += [dir_blocks_features, 
-                        dir_blocks_salicencyMaps,
-                        dir_blocks_visuals,
-                        dir_blocks_visuals_saliencyMaps,
-                        dir_blocks_visuals_overlaidSaliencyMaps,
-                        dir_blocks_visuals_labelGrids, 
-                        dir_blocks_visuals_overlaidLabelGrids,
+    #Patch classification
+    checkDirectories += [dir_patches_features, 
+                        dir_patches_salicencyMaps,
+                        dir_patches_visuals,
+                        dir_patches_visuals_saliencyMaps,
+                        dir_patches_visuals_overlaidSaliencyMaps,
+                        dir_patches_visuals_labelGrids, 
+                        dir_patches_visuals_overlaidLabelGrids,
                         dir_classifier_models,
-                        dir_blocks_results,
-                        dir_blocks_results_visuals, 
-                        dir_blocks_visuals_predictionGrids, 
-                        dir_blocks_visuals_overlaidPredictionGrids, 
-                        dir_blocks_visuals_fusionGrids, 
-                        dir_blocks_visuals_overlaidFusionGrids
+                        dir_patches_results,
+                        dir_patches_results_visuals, 
+                        dir_patches_visuals_predictionGrids, 
+                        dir_patches_visuals_overlaidPredictionGrids, 
+                        dir_patches_visuals_fusionGrids, 
+                        dir_patches_visuals_overlaidFusionGrids
                        ]
 
     #Reconstruction
-    checkDirectories += [dir_recon_blocks, 
+    checkDirectories += [dir_recon_patches, 
                         dir_recon_features,
                         dir_recon_saliencyMaps,
                         dir_recon_inputData, 
