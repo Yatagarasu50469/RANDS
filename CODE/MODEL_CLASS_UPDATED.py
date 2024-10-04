@@ -173,7 +173,7 @@ class Classifier():
         del self.model_XGBClassifier, dataInput
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_patches()
+            cp._default_memory_pool.free_all_blocks()
         
         #Classify the WSI
         _, samplePredictions, samplePatchIndices = self.classifyWSI(self.sampleNames, self.patchSampleNames, [], patchPredictions)

@@ -272,7 +272,7 @@ class Classifier():
             del self.model_XGBClassifier, dataInput
             if len(gpus) > 0: 
                 torch.cuda.empty_cache() 
-                cp._default_memory_pool.free_all_patches()
+                cp._default_memory_pool.free_all_blocks()
         
         #Convert lists of predictions to arrays and collapse labels for evaluation
         foldsLabels = np.concatenate(foldsLabels)
@@ -388,7 +388,7 @@ class Classifier():
         del self.model_XGBClassifier, model_onnx_XGBClassifier
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_patches()
+            cp._default_memory_pool.free_all_blocks()
         
         #Setup pre-trained ResNet model
         model_ResNet = models.resnet50(weights=weightsResNet)
@@ -424,7 +424,7 @@ class Classifier():
         del self.model_XGBClassifier, dataInput
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
-            cp._default_memory_pool.free_all_patches()
+            cp._default_memory_pool.free_all_blocks()
         
         #Classify WSI
         _, samplePredictions, samplePredictionsFusion, samplePatchIndices = self.classifyWSI(self.sampleNames, self.patchSampleNames, [], patchPredictions, patchPredictionsFusion)
