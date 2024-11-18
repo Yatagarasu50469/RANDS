@@ -71,7 +71,7 @@ availableThreads = 0
 classifierModel = 'original'
 
 #What is the camera resolution in mm/pixel for the instrument that acquired the data being used
-cameraResolution = 0.00454
+cameraResolution = 0.001
 
 #What is the minimum area/quantity (in mm^2) of foreground data that should qualify a patch for classification
 #Decrease for increased sensitivity and vice versa; result should not exceed patchSize*cameraResolution
