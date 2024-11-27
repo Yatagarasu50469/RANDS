@@ -117,7 +117,7 @@ visualizePredictionGrids_patches = True
 #Unknown what the original work used for this value, but for original work replication, a value of 0.15 seems appropriate 
 #Replication of original results occurs with values between 0.12-0.19
 #If this value is changed, then should enable visualizeLabelGrids_patches to update stored data
-thresholdWSI = 0.15
+thresholdWSI = 0
 
 #If folds for XGB classifier cross validation should be manually defined (e.g. [['S1', 'S3'], ['S4', 'S2']]), else use specify number of folds to generate
 #Default matches folds used in prior work (https://doi.org/10.3389/fonc.2023.1179025)

@@ -213,8 +213,12 @@ class Classifier():
         for sampleIndex, sampleName in enumerate(sampleNames):
             patchIndices = np.where(patchSampleNames == sampleName)[0]
             samplePatchIndices.append(patchIndices)
-            if len(patchLabels) > 0: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI)*1)
-            samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI)*1)
+            if thresholdWSI == 0: 
+                if len(patchLabels) > 0: sampleLabels.append((np.sum(patchLabels[patchIndices]) > 0)*1)
+                samplePredictions.append((np.sum(patchPredictions[patchIndices]) > 0)*1)
+            else: 
+                if len(patchLabels) > 0: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI)*1)
+                samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI)*1)
             if self.fusionMode: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI)*1)
         return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), samplePatchIndices
     
