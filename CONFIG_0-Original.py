@@ -75,10 +75,10 @@ classifierModel = 'original'
 cameraResolution = 0.001
 
 #What is the minimum area/quantity (in mm^2) of foreground data that should qualify a patch for classification
-#Decrease for increased sensitivity and vice versa; result should not exceed patchSize*cameraResolution
-#As the classifier was not trained to handle blank background patches, setting to low will harm performance
+#Decrease for increased sensitivity and vice versa; result should not exceed (patchSize*cameraResolution)**2
+#As the classifier was not trained to handle blank background patches, setting too low will harm performance
 #This value is arbitary and has not been certified/determined
-minimumForegroundArea = 0.0
+minimumForegroundArea = 0.283**2
 
 #Minimum value [0, 255] for a grayscale pixel to be considered as a foreground location during patch extraction (default: 11)
 #-1 will automatically determine a new value as the minimum Otsu threshold across all available WSI; default value from prior determination
@@ -112,12 +112,15 @@ visualizeLabelGrids_patches = True
 visualizePredictionGrids_patches = True
 
 #What ratio of malignant to benign patches should be used to label a whole WSI as malignant (default: 0)
-#Setting to 0, will label/predict a whole WSI as malignant if any one patch is identified as malignant
-#i.e.: All patches must be labeled/predicted as benign for a WSI to be labeled/predicted as benign
+#When set to 0, will label a WSI as malignant if any one component patch has a malignant label
+thresholdWSI_label = 0
+
+#What ratio of malignant to benign patches should be used to predict a whole WSI as malignant (default: 0.15)
+#When set to 0, will label a WSI as malignant if any one patch is predicted as malignant
 #Unknown what the original work used for this value, but for original work replication, a value of 0.15 seems appropriate 
 #Replication of original results occurs with values between 0.12-0.19
 #If this value is changed, then should enable visualizeLabelGrids_patches to update stored data
-thresholdWSI = 0.15
+thresholdWSI_prediction = 0.15
 
 #If folds for XGB classifier cross validation should be manually defined (e.g. [['S1', 'S3'], ['S4', 'S2']]), else use specify number of folds to generate
 #Default matches folds used in prior work (https://doi.org/10.3389/fonc.2023.1179025)

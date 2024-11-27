@@ -213,13 +213,14 @@ class Classifier():
         for sampleIndex, sampleName in enumerate(sampleNames):
             patchIndices = np.where(patchSampleNames == sampleName)[0]
             samplePatchIndices.append(patchIndices)
-            if thresholdWSI == 0: 
-                if len(patchLabels) > 0: sampleLabels.append((np.sum(patchLabels[patchIndices]) > 0)*1)
-                samplePredictions.append((np.sum(patchPredictions[patchIndices]) > 0)*1)
-            else: 
-                if len(patchLabels) > 0: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI)*1)
-                samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI)*1)
-            if self.fusionMode: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI)*1)
+            if len(patchLabels) > 0: 
+                if thresholdWSI_label == 0: sampleLabels.append((np.sum(patchLabels[patchIndices]) > 0)*1)
+                else: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI_label)*1)
+            if thresholdWSI_prediction == 0: samplePredictions.append((np.sum(patchPredictions[patchIndices]) > 0)*1)
+            else: samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI_prediction)*1)
+            if self.fusionMode: 
+                if thresholdWSI_prediction == 0: samplePredictionsFusion.append((np.sum(patchPredictionsFusion[patchIndices]) > 0)*1)
+                else: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction)*1)
         return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), samplePatchIndices
     
     #Perform cross-validation
@@ -384,27 +385,27 @@ class Classifier():
         
         #Save to disk in .json format for easy reloading
         self.model_XGBClassifier.save_model(dir_classifier_models + 'model_XGBClassifier.json')
-        initial_type = [('float_input', data_types.FloatTensorType([1, 1000]))]
-        model_onnx_XGBClassifier = convert_xgboost(self.model_XGBClassifier, initial_types=initial_type)
-        with open(dir_classifier_models + 'model_XGBClassifier.onnx', 'wb') as f: _ = f.write(model_onnx_XGBClassifier.SerializeToString())
+        #initial_type = [('float_input', data_types.FloatTensorType([1, 1000]))]
+        #model_onnx_XGBClassifier = convert_xgboost(self.model_XGBClassifier, initial_types=initial_type)
+        #with open(dir_classifier_models + 'model_XGBClassifier.onnx', 'wb') as f: _ = f.write(model_onnx_XGBClassifier.SerializeToString())
         
         #Clear memory
-        del self.model_XGBClassifier, model_onnx_XGBClassifier
+        del self.model_XGBClassifier#, model_onnx_XGBClassifier
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
             cp._default_memory_pool.free_all_blocks()
         
         #Setup pre-trained ResNet model
-        model_ResNet = models.resnet50(weights=weightsResNet)
-        _ = model_ResNet.train(False)
+        #model_ResNet = models.resnet50(weights=weightsResNet)
+        #_ = model_ResNet.train(False)
         
         #Save onnx format to disk
-        if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
-        else: torch_input = torch.randn(1, 3, patchSize, patchSize)
-        torch.onnx.export(model_ResNet, torch_input, dir_classifier_models + 'model_ResNet.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
+        #if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
+        #else: torch_input = torch.randn(1, 3, patchSize, patchSize)
+        #torch.onnx.export(model_ResNet, torch_input, dir_classifier_models + 'model_ResNet.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
         
         #Clear model from memory
-        del model_ResNet
+        #del model_ResNet
         
     #Load a pretrained model
     def loadClassifier(self):

@@ -72,7 +72,7 @@ class Classifier():
     def predict(self, inputs):
         return self.model(inputs)
     
-    #Create and train a new classifier model
+    #Train a new XGB Classifier model
     def train(self, inputs, labels):
         #self.model = 
         return None
@@ -159,7 +159,7 @@ class Classifier():
                     imageWSI_Predictions = cv2.addWeighted(imageWSI, 1.0, gridOverlay_Predictions, overlayWeight, 0.0)
                     _ = exportImage(self.dir_visuals_overlaidPredictionGrids+'overlaid_predictionsGrid_'+sampleName, imageWSI_Predictions, exportLossless)
 
-    #Generate data for reconstruction model training/testing
+    #Generate data for reconstruction model
     def generateReconData(self):
         
         #Place data on the GPU if able
@@ -169,7 +169,7 @@ class Classifier():
         #Classify patches
         patchPredictions = np.asarray(self.predict(dataInput))
         
-        #Clear the model and data on GPU
+        #Clear the XGBClassifier model and data on GPU
         del self.model_XGBClassifier, dataInput
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
@@ -194,8 +194,13 @@ class Classifier():
             predictionMaps = np.asarray(predictionMaps, dtype='object')
             np.save(dir_recon_inputData + 'predictionMaps', predictionMaps)
 
-    #Export model components; 
+    #Export model components (onnx for C# and a pythonic option)
     def exportClassifier(self):
+        
+        #Convert model to onnx and save to disk; if result is over 100 Mb, then need to apply zip method demonstrated below for saving pythonic model-form
+        if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
+        else: torch_input = torch.randn(1, 3, patchSize, patchSize)
+        torch.onnx.export(self.model, torch_input, dir_classifier_models + 'model_updated.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
         
         #Store the torch model across multiple 100 Mb files to bypass Github upload file size limits
         modelPath = dir_classifier_models + 'model_updated'
