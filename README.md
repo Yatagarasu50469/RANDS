@@ -6,7 +6,7 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       27 November 2024
+<b>MODIFIED:</b>       16 January 2024
 <b>VERSION:</b>        0.0.4
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
@@ -214,7 +214,7 @@ Open a terminal window and perform the following operations:
 
 ## Main Installation
 
-Open a terminal or command prompt (**not as an administrator**) and run the commands shown below. If intending to use the legacy TensorFlow model variant ('DLADS-TF'), **do not run** the first line (that installs torch, torchvision, and torchaudio), but follow the relevant directions in the **FAQ** after completing the other instructions.
+Open a terminal or command prompt (**not as an administrator**) and run the commands shown below. 
     
 	$ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     $ pip3 install opencv-python datetime glob2 IPython pandas pathlib psutil matplotlib numpy numba pillow ray[serve]==2.33.0 scipy scikit-learn natsort scikit-image tqdm py7zr multivolumefile notebook==6.5.6 ipywidgets openpyxl xgboost grad-cam onnxmltools skl2onnx onnxruntime cupy-cuda12x
