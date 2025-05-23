@@ -52,15 +52,9 @@ if classifierRecon:
     #Declare section execution in UI
     sectionTitle('CLASSIFYING REMAINING WSI & ASSEMBLING RECONSTRUCTOR DATA')
     
-    #If a background value for thresholding patch data has not been set, determine one across all available WSI
-    if patchBackgroundValue == -1:
-        otsuThresholds = np.asarray([cv2.threshold(cv2.cvtColor(cv2.imread(filename, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2GRAY),0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)[0] for filename in tqdm(WSIFilenames_recon, desc='Background Estimation', leave=True, ascii=asciiFlag)])
-        patchBackgroundValue = int(otsuThresholds.min())
-        print('Given all available WSI, the recommended value that will be used for patchBackgroundValue is: '+str(patchBackgroundValue))
-    
     #Split the WSI into patches if the overwrite is enabled (do not reuse labeled patches; different extraction process used)
     if overwrite_recon_patches: 
-        patchNames_recon, patchFilenames_recon, patchSampleNames_recon, patchLocations_recon, cropData_recon, paddingData_recon, shapeData_recon = extractPatches(WSIFilenames_recon, patchBackgroundValue, dir_recon_patches)
+        patchNames_recon, patchFilenames_recon, patchSampleNames_recon, patchLocations_recon, cropData_recon, paddingData_recon, shapeData_recon = extractPatchesMultiple(WSIFilenames_recon, patchBackgroundValue, dir_recon_patches)
         patchData_recon = np.concatenate([np.expand_dims(patchNames_recon, -1), np.expand_dims(patchFilenames_recon, -1), np.expand_dims(patchSampleNames_recon, -1), patchLocations_recon], 1)
         np.save(dir_recon_patches + 'patchData_recon', patchData_recon)
         WSIData_recon = np.concatenate([cropData_recon, paddingData_recon, shapeData_recon], 1)

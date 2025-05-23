@@ -70,20 +70,6 @@ availableThreads = 0
 #Which classifier model file should be loaded: 'original' or 'updated' (default: original)
 classifierModel = 'original'
 
-#What is the camera resolution in mm/pixel for the instrument that acquired the data being used
-#This value is arbitary and has not been certified/determined
-cameraResolution = 0.001
-
-#What is the minimum area/quantity (in mm^2) of foreground data that should qualify a patch for classification
-#Decrease for increased sensitivity and vice versa; result should not exceed (patchSize*cameraResolution)**2
-#As the classifier was not trained to handle blank background patches, setting too low will harm performance
-#This value is arbitary and has not been certified/determined
-minimumForegroundArea = 0.283**2
-
-#Minimum value [0, 255] for a grayscale pixel to be considered as a foreground location during patch extraction (default: 11)
-#-1 will automatically determine a new value as the minimum Otsu threshold across all available WSI; default value from prior determination
-patchBackgroundValue = 11
-
 #==================================================================
 #L2-1: PATCHES
 #==================================================================
@@ -339,9 +325,9 @@ overlayGray = True
 #Any images that are anticipated to be reused (such as extracted patches), should be hardcoded to be saved in a lossless format by default
 exportLossless = False
 
-#For .jpg image outputs, what should the compression quality (%) be (default: 95)
+#For .jpg image outputs, what should the compression quality (%) be (default: 90)
 #WARNING: Setting to 100 is not sufficient to generate in lossless/exact outputs; if that is desired, use overlayLossless instead! 
-exportQuality = 95
+exportQuality = 90
 
 #What weight should be used when overlaying data
 overlayWeight = 0.5
@@ -366,13 +352,15 @@ overWriteFile = None
 #'a': normal adipose.
 #'s': normal stroma tissue excluding adipose.
 #'o': other normal tissue including parenchyma, adenosis, lobules, blood vessels, etc.
-labelsBenign = ['a', 's', 'o', 'normal']
+#'N': normal
+labelsBenign = ['a', 's', 'o', 'normal', 'N']
 
 #Define labels used for malignant tissue
 #'d': IDC tumor
 #'l': ILC tumor
 #'ot': other tumor areas including DCIS, biopsy site, and slightly defocused tumor regions.
-labelsMalignant = ['d', 'l', 'ot', 'tumor']
+#'T': tumor
+labelsMalignant = ['d', 'l', 'ot', 'tumor', 'T']
 
 #Define labels used for tissues to be excluded
 #'ft': defocused but still visually tumor-like areas.

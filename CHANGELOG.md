@@ -11,6 +11,7 @@
 **0.0.2**  Export ResNet50 in ONNX, remove classifierWSI   
 **0.0.3**  Ammend naming of blocks (instruement camera captures) to patches (extracted/labeled areas)   
 **0.0.4**  Increase granularity of WSI-level label/prediction criteria
+**0.0.5**  Prep-work for possible merger with DDSM-GUI (development on this approach has been canceled)
 
 ## Future Development
 

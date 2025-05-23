@@ -102,6 +102,9 @@ class Classifier():
         
     def computeFeatures(self):
         
+        #Reset RNG before setting up model; else initialization values may be be inconsistent
+        resetRandom()
+        
         #Load pretrained ResNet50 model and set to evaluation mode
         model_ResNet = models.resnet50(weights=weightsResNet).to(self.torchDevice)
         _ = model_ResNet.train(False)
@@ -122,6 +125,9 @@ class Classifier():
         np.save(self.dir_features + 'patchFeatures'+self.suffix, self.patchFeatures)
     
     def computeSalicencyMaps(self):
+        
+        #Reset RNG before setting up model; else initialization values may be be inconsistent
+        resetRandom()
         
         #Load pre-trained DenseNet
         model_DenseNet = models.densenet169(weights=weightsDenseNet)
@@ -374,7 +380,7 @@ class Classifier():
     
     #Train a new XGB Classifier model
     def train(self, inputs, labels):
-        self.model_XGBClassifier = XGBClassifier(device=self.device)
+        self.model_XGBClassifier = XGBClassifier(device=self.device, seed=0)
         _  = self.model_XGBClassifier.fit(inputs.astype(np.float32), labels)
     
     #Train on all available data and export models
@@ -385,27 +391,12 @@ class Classifier():
         
         #Save to disk in .json format for easy reloading
         self.model_XGBClassifier.save_model(dir_classifier_models + 'model_XGBClassifier.json')
-        #initial_type = [('float_input', data_types.FloatTensorType([1, 1000]))]
-        #model_onnx_XGBClassifier = convert_xgboost(self.model_XGBClassifier, initial_types=initial_type)
-        #with open(dir_classifier_models + 'model_XGBClassifier.onnx', 'wb') as f: _ = f.write(model_onnx_XGBClassifier.SerializeToString())
         
         #Clear memory
         del self.model_XGBClassifier#, model_onnx_XGBClassifier
         if len(gpus) > 0: 
             torch.cuda.empty_cache() 
             cp._default_memory_pool.free_all_blocks()
-        
-        #Setup pre-trained ResNet model
-        #model_ResNet = models.resnet50(weights=weightsResNet)
-        #_ = model_ResNet.train(False)
-        
-        #Save onnx format to disk
-        #if resizeSize_patches != 0: torch_input = torch.randn(1, 3, resizeSize_patches, resizeSize_patches)
-        #else: torch_input = torch.randn(1, 3, patchSize, patchSize)
-        #torch.onnx.export(model_ResNet, torch_input, dir_classifier_models + 'model_ResNet.onnx', export_params=True, opset_version=17, do_constant_folding=True, input_names = ['input'], output_names = ['output'], dynamic_axes={'input' : {0 : 'batch_size'}, 'output' : {0 : 'batch_size'}})
-        
-        #Clear model from memory
-        #del model_ResNet
         
     #Load a pretrained model
     def loadClassifier(self):

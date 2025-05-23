@@ -6,8 +6,8 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       16 January 2024
-<b>VERSION:</b>        0.0.4
+<b>MODIFIED:</b>       22 May 2025
+<b>VERSION:</b>        0.0.5
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
 <b>FUNDING:</b>        Development of RANDS has been funded by and developed for NIH Grant 5R01EB033806

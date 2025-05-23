@@ -140,9 +140,7 @@ from torchvision.transforms.functional import InterpolationMode
 #torch.autograd.set_detect_anomaly(True)
 
 #Setup deterministic behavior for torch (this alone does not affect CUDA-specific operations)
-if (manualSeedValue != -1): 
-    torch.use_deterministic_algorithms(True, warn_only=False)
-    torch.manual_seed(manualSeedValue)
+if (manualSeedValue != -1): torch.use_deterministic_algorithms(True, warn_only=False)
 
 #Turn off image size checking for pillow; note that this can allow for decompression bomb DOS attacks if an untrusted image ends up as an input
 Image.MAX_IMAGE_PIXELS = None
