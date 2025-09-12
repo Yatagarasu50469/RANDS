@@ -209,17 +209,12 @@ class Classifier():
         for sampleIndex, sampleName in enumerate(sampleNames):
             patchIndices = np.where(patchSampleNames == sampleName)[0]
             samplePatchIndices.append(patchIndices)
-            #Tracer() TODO: try htis verison again; easier to read
-            #if thresholdWSI_prediction == 0:
-            #    if np.sum(patchPredictionsFusion[patchIndices]) > 0: samplePredictionsFusion.append(1)
-            #    else: samplePredictionsFusion.append(0)
-            #else: 
-            #    if np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction: samplePredictionsFusion.append(1)
-            #    else: samplePredictionsFusion.append(0)
-            #    
-            if thresholdWSI_prediction == 0: samplePredictionsFusion.append((np.sum(patchPredictionsFusion[patchIndices]) > 0)*1)
-            else: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction)*1)
-            
+            if thresholdWSI_prediction == 0:
+                if np.sum(patchPredictionsFusion[patchIndices]) > 0: samplePredictionsFusion.append(1)
+                else: samplePredictionsFusion.append(0)
+            else: 
+                if np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction: samplePredictionsFusion.append(1)
+                else: samplePredictionsFusion.append(0)
         return np.asarray(samplePredictionsFusion), samplePatchIndices
     
     #Perform cross-validation
