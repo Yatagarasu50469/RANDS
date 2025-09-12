@@ -6,7 +6,7 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       22 May 2025
+<b>MODIFIED:</b>       12 September 2025
 <b>VERSION:</b>        0.0.5
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
@@ -52,6 +52,7 @@
   |----->CONFIG_#-description.py              #Configuration for a single program run
   |----->CODE                                 #Location to store any code used in the course of running the program
   |  |----->AESTHETICS.py                     #Handles UI elements at runtime
+  |  |----->CONFIGURATION.py                  #Default configuration parameters to be overridden by CONFIG_#-description.py file(s)
   |  |----->COMPUTE.py                        #Prepare computation CPU/GPU/RAM environment
   |  |----->DEFINITIONS.py                    #Global methods
   |  |----->EXTERNAL.py                       #Environmental variables and setup of third-party libraries
@@ -230,7 +231,7 @@ Packages that may no longer be required (if there is a runtime error that refere
 ## Configuration
 **Note:** There are very few sanity checks inside of the code to ensure only correct/valid configurations are used. If an unexpected error occurs, please double check the sample and program configuration files to ensure they are correct before opening an issue or contacting the author. Thank you.
 
-All critical parameters may be altered in a configuration file (Ex. ./CONFIG_0.py). Variable descriptions are provided inside of an example configuration provided and are grouped according to the following method:
+All parameters may be altered in a configuration file (Ex. ./CONFIG_0.py), which override defaults stored in "./CODE/CONFIGURATION.py". Variable descriptions are provided inside of the default configuration file and are grouped according to the following method:
 
     L0: Tasks to be Performed
     L1: Compute Hardware & Global Methods
@@ -329,38 +330,50 @@ Ray/Python pin objects in memory if any reference to them still exists; referenc
 
 ***
 # PUBLICATIONS
+**Note:** DUV-FSM (Deep-Ultraviolet Fluoresence Scanning Microscope) refers to the first generation experimental system, whereas DDSM denotes the second generation variant. 
 
-## RESEARCH PRODUCED WITH THIS CODE
+## RESEARCH PRODUCED USING THIS CODE
 
-**N/A**  
-**Version(s):** v0.1.0   
-**Subject:** N/A   
-**Citation(s):** N/A   
-**Available:** (N/A)
+**Prior/Original and Vision Transformer Classification Network**   
+**Version(s):** v0.0.4  
+**Subject:** Breast Cancer Classification for DUV-FSM   
+**Citation(s):** P. Afshin et al., ‘Breast Cancer Classification in Deep Ultraviolet Fluorescence Images Using a Patch-Level Vision Transformer Framework’, arXiv preprint arXiv:2505. 07654, 2025.   
+**Available:** (https://arxiv.org/pdf/2505.07654?)   
+**Note:** Results for comparitive network only; vision transformer network implemented outside of this code and was not yet included herein.   
 
 ## RELATED RESEARCH
 
-**Prior/Original Classification Network**  
+**Prior/Original Classification Network**    
 **Subject:** Breast Cancer Classification for DUV-FSM   
 **Available:** (https://github.com/tyrellto/breast-cancer-research/tree/main)   
-**Note**: Original classification network code has been derived from this existing work (published under GNU GPLv3), but **entirely** rewritten. 
+**Note**: Original classification network code for RANDS was derived from this existing work (published under GNU GPLv3), but **entirely** rewritten. 
 
-**Prior/Original Classification Network**  
+**Prior/Original Classification Network**    
 **Subject:** Breast Cancer Classification for DUV-FSM   
 **Citation(s):** T. To et al., “Deep learning classification of deep ultraviolet fluorescence images toward intra-operative margin assessment in breast cancer,” Frontiers in Oncology, vol. 13, Jun. 2023, doi: 10.3389/fonc.2023.1179025   
-**Available:** https://doi.org/10.3389/fonc.2023.1179025   
+**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC10313133/)   
+
+**Prior/Original Classification Network**   
+**Subject:** Breast Cancer Classification for DUV-FSM   
+**Citation(s):** Lu T, Jorns JM, Ye DH, Patton M, Gilat-Schmidt T, Yen T, Yu B. Analysis of Deep Ultraviolet Fluorescence Images for Intraoperative Breast Tumor Margin Assessment. Proc SPIE Int Soc Opt Eng. 2023 Jan-Feb;12368:1236806. doi: 10.1117/12.2649552. Epub 2023 Mar 6. PMID: 37292087; PMCID: PMC10249647.   
+**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC10249647/)   
 
 **Prior/Original Classification Network**  
 **Subject:** Breast Cancer Classification for DUV-FSM   
 **Citation(s):** T. To, “Deep Learning Classification of Deep Ultraviolet Fluorescence Images for Margin Assessment During Breast Cancer Surgery,” Master’s Thesis, Marquette University, 2023.   
 **Available:** (https://epublications.marquette.edu/theses_open/768)   
 
+**Texture Analysis Classification**  
+**Subject:** Breast Cancer Classification for DUV-FSM   
+**Citation(s):** Lu T, Jorns JM, Ye DH, Patton M, Fisher R, Emmrich A, Schmidt TG, Yen T, Yu B. Automated assessment of breast margins in deep ultraviolet fluorescence images using texture analysis. Biomed Opt Express. 2022 Aug 30;13(9):5015-5034. doi: 10.1364/BOE.464547. PMID: 36187258; PMCID: PMC9484420.   
+**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC9484420/)   
+
 **Prior/Original Classification Network**  
 **Subject:** Breast Cancer Classification for DUV-FSM   
 **Citation(s):** T. To, S. H. Gheshlaghi and D. H. Ye, "Deep Learning for Breast Cancer Classification of Deep Ultraviolet Fluorescence Images toward Intra-Operative Margin Assessment," 2022 44th Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC), Glasgow, Scotland, United Kingdom, 2022, pp. 1891-1894, doi: 10.1109/EMBC48229.2022.9871819   
 **Available:** (https://doi.org/10.1109/EMBC48229.2022.9871819)
 
-**Experimental Platform intended for integration**  
-**Subject:** DUV-FSM Experimental Platform   
+**Experimental DUV-FSM Platform**   
+**Subject:** First Generation Experimental Platform for DUV-FSM   
 **Citation(s):** Lu T, Jorns JM, Patton M, Fisher R, Emmrich A, Doehring T, Schmidt TG, Ye DH, Yen T, Yu B. Rapid assessment of breast tumor margins using deep ultraviolet fluorescence scanning microscopy. J Biomed Opt. 2020 Nov;25(12):126501. doi: 10.1117/1.JBO.25.12.126501. PMID: 33241673; PMCID: PMC7688317.   
 **Available:** (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7688317/)   

@@ -14,6 +14,9 @@ dir_tmp = sys.argv[2]
 try: versionNum = sys.argv[3]
 except: versionNum = 'N/A'
 
+#Load in default configuration options; values may be overridden by custom configuration file(s)
+exec(open("./CODE/CONFIGURATION.py", encoding='utf-8').read())
+
 #Load in chosen configuration options; must be done first to set global variables for certain functions/methods correctly
 exec(open(configFileName, encoding='utf-8').read())
 

@@ -4,41 +4,66 @@
 
 #Load/synchronize data labeling, drop excluded rows, and extract relevant metadata
 def loadMetadata_patches(filename):
-    metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str})
+    try: metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label', 'Edge', 'Boundary'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str, 'Edge':str, 'Boundary':str})
+    except: metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str})
+    
+    #Sometimes patch filenames were used instead of sample name in metadata
+    patchSampleNames = metadata['Sample'].to_numpy().tolist()
+    if len(patchSampleNames[0].split('_')) > 2: 
+        patchSampleNames = ['_'.join(patchSampleName.split('_')[:2]) for patchSampleName in patchSampleNames]
+        metadata['Sample'] = patchSampleNames
+        
+    #Not currently using edge or boundary labels; may not be present
+    try: 
+        del metadata['Edge']
+        del metadata['Boundary']
+    except: 
+        pass
+    
+    #Unify benign/malignant/exclusion labels
     metadata['Label'] = metadata['Label'].replace(labelsBenign, labelBenign)
     metadata['Label'] = metadata['Label'].replace(labelsMalignant, labelMalignant)
     metadata['Label'] = metadata['Label'].replace(labelsExclude, labelExclude)
     metadata = metadata.loc[metadata['Label'] != labelExclude]
     return [np.squeeze(data) for data in np.split(np.asarray(metadata), [1, 2, 4], -1)]
 
+#Load/synchronize data labeling, drop excluded rows, and extract relevant metadata
+def loadMetadata_WSI(filename):
+    metadata = pd.read_csv(filename, header=0, names=['Sample', 'Label'], converters={'Sample':str, 'Label':str})
+    metadata['Label'] = metadata['Label'].replace(labelsBenign, labelBenign)
+    metadata['Label'] = metadata['Label'].replace(labelsMalignant, labelMalignant)
+    metadata['Label'] = metadata['Label'].replace(labelsExclude, labelExclude)
+    metadata = metadata.loc[metadata['Label'] != labelExclude]
+    return [np.squeeze(data) for data in np.split(np.asarray(metadata), 2, -1)]
+
 def extractPatches(imageWSI, dir_patches):
 
-    #Crop WSI to the foreground area using Otsu on grayscale version of the WSI
-    x, y, w, h = cv2.boundingRect(cv2.threshold(cv2.cvtColor(imageWSI, cv2.COLOR_BGR2GRAY), 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)[1]) 
+    #Crop off the right and bottom edges for even division by the specified patch size
+    numPatchesRow, numPatchesCol = imageWSI.shape[0]//patchSize, imageWSI.shape[1]//patchSize
+    y, h, x, w = 0, numPatchesRow*patchSize, 0, numPatchesCol*patchSize
     imageWSI = imageWSI[y:y+h, x:x+w]
-    cropData = [y, y+h, x, x+w]
     
-    #Pad the image as needed (as symmetrically as possible) for an even division by the specified patch size; compute numPatches per row/column
-    padHeight = (int(np.ceil(imageWSI.shape[0]/patchSize))*patchSize)-imageWSI.shape[0]
-    padWidth = (int(np.ceil(imageWSI.shape[1]/patchSize))*patchSize)-imageWSI.shape[1]
-    padTop, padLeft = padHeight//2, padWidth//2
-    padBottom, padRight = padTop+(padHeight%2), padLeft+(padWidth%2)
-    imageWSI = np.pad(imageWSI, ((padTop, padBottom), (padLeft, padRight), (0, 0)))
-    paddingData = [padTop, padBottom, padLeft, padRight]
+    #Store relevant parameters for later use
+    cropData = [y, y+h, x, x+w]
+    paddingData = [None, None, None, None]
     numPatchesRow, numPatchesCol = imageWSI.shape[0]//patchSize, imageWSI.shape[1]//patchSize
     shapeData = [numPatchesRow, numPatchesCol]
-
+    
     #Split the WSI into patches and flatten
     imageWSI = imageWSI.reshape(numPatchesRow, patchSize, numPatchesCol, patchSize, imageWSI.shape[2]).swapaxes(1,2)
     imageWSI = imageWSI.reshape(-1, imageWSI.shape[2], imageWSI.shape[3], imageWSI.shape[4])
-
-    #Save patches to disk (always lossless) where over 80% of red-channel values are at least 5
+    
+    #Save patches to disk (always lossless) that meet a given threshold of chosen-channel values at or over a given background level
     patchLocations, patchNames, patchSampleNames, patchFilenames = [], [], [], []
     patchIndex = 0
     for rowNum in range(0, numPatchesRow):
         for colNum in range(0, numPatchesCol):
             image = imageWSI[patchIndex]
-            if np.mean(image[:,:,0] >= 5) > 0.8:
+            if channel_extraction == 'red': channelValue = np.mean(image[:,:,0] >= backgroundLevel)
+            elif channel_extraction == 'green': channelValue = np.mean(image[:,:,1] >= backgroundLevel)
+            elif channel_extraction == 'gray': channelValue = np.mean(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) >= backgroundLevel)
+            else: sys.exit('Error - Unknown channel selected for use during patch extraction')
+            if channelValue > thresholdPatch_extraction:
                 locationRow, locationColumn= rowNum*patchSize, colNum*patchSize
                 patchLocations.append([locationRow, locationColumn])
                 patchName = sampleName+'_'+str(patchIndex)+'_'+str(locationRow)+'_'+str(locationColumn)
@@ -50,7 +75,6 @@ def extractPatches(imageWSI, dir_patches):
             patchIndex += 1
 
     return cropData, shapeData, paddingData, patchLocations, patchNames, patchSampleNames, patchFilenames
-
 
 #Extract patches and determine associated metadata for referenced WSI files; abstraction allows for isolation of WSI data used for training the classifier
 def extractPatchesMultiple(WSIFilenames, patchBackgroundValue, dir_output):
@@ -136,7 +160,7 @@ def exportImage(filename, image, exportLosslessFlag):
         writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), params=(cv2.IMWRITE_TIFF_COMPRESSION, 1))
     else: 
         filename += '.jpg'
-        writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [int(cv2.IMWRITE_JPEG_QUALITY), qualityJPG])
+        writeSuccess = cv2.imwrite(filename, cv2.cvtColor(image, cv2.COLOR_RGB2BGR), [int(cv2.IMWRITE_JPEG_QUALITY), exportQuality])
     if not writeSuccess: sys.exit('\nError - Unable to write file to disk; please verify directory location exists and has sufficient free space: ' + filename + '\n')
     return filename
 

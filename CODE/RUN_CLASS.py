@@ -11,16 +11,29 @@ if classifierTrain or classifierExport or classifierRecon:
         patchLabels_patches = patchLabels_patches.astype(int)
         patchNames_patches = np.asarray([patchSampleNames_patches[index] + '_' + indices_patches[index] for index in range(0, len(patchSampleNames_patches))])
         patchFilenames_patches = np.asarray([dir_patches_inputPatches + patchSampleNames_patches[index] + os.path.sep + 'PS'+patchSampleNames_patches[index]+'_'+str(indices_patches[index])+'_'+str(locations_patches[index, 0])+'_'+str(locations_patches[index, 1])+'.tif' for index in range(0, len(patchSampleNames_patches))])
-        sampleNames_patches = np.unique(patchSampleNames_patches)
-        WSIFilenames_patches = np.asarray([dir_patches_inputWSI + sampleName + '.jpg' for sampleName in sampleNames_patches])
+        sampleNames_patches = np.asarray(natsort.natsorted(np.unique(patchSampleNames_patches)))
+        extWSI = list(np.unique([os.path.basename(filename).split('.')[1] for filename in glob.glob(dir_patches_inputWSI+'*')]))
+        extWSI.remove('csv')
+        if len(extWSI) > 1: sys.exit('ERROR - Multiple extensions seen for images in: ', dir_patches_inputWSI)
+        else: extWSI = '.'+extWSI[0]
+        WSIFilenames_patches = np.asarray([dir_patches_inputWSI + sampleName + extWSI for sampleName in sampleNames_patches])
     except:
-        if classifierTrain or classifierExport: sys.exit('\nError - Failed to load data needed for classifierTrain\n')
+        if classifierTrain or classifierExport: sys.exit('\nError - Failed to load patch data needed for classifierTrain\n')
         print('\nWarning - Failed to find/load data in: ' + dir_patches_inputPatches + '\n')
         patchSampleNames_patches, indices_patches, locations_patches, patchLabels_patches = np.asarray([]), np.asarray([]), np.asarray([]), np.asarray([])
     
+    #Attempt to load WSI metadata
+    try:
+        WSISampleNames_WSI, WSILabels_WSI = loadMetadata_WSI(dir_patches_inputWSI + 'metadata_WSI.csv')
+        WSILabels_WSI = WSILabels_WSI.astype(int)
+    except:
+        if classifierTrain or classifierExport: sys.exit('\nError - Failed to load WSI data needed for classifierTrain\n')
+        print('\nWarning - There does not appear to be any metadata available for WSI samples.')
+        sampleNames_WSI, WSILabels_WSI = np.asarray([]), np.asarray([])
+    
     #Load and determine sample names for all WSI (not just those needed for labeled patch images)
-    WSIFilenames_recon = np.asarray(natsort.natsorted(glob.glob(dir_patches_inputWSI + '*.jpg'))+natsort.natsorted(glob.glob(dir_recon_inputWSI + '*.jpg')))
-    sampleNames_recon = np.asarray([os.path.basename(filename).split('.jpg')[0] for filename in WSIFilenames_recon])
+    WSIFilenames_recon = np.asarray(natsort.natsorted(glob.glob(dir_patches_inputWSI + '*'+extWSI))+natsort.natsorted(glob.glob(dir_recon_inputWSI + '*'+extWSI)))
+    sampleNames_recon = np.asarray([os.path.basename(filename).split(extWSI)[0] for filename in WSIFilenames_recon])
 
 #If configured for patch classification and/or model export
 if classifierTrain: 
@@ -29,7 +42,7 @@ if classifierTrain:
     sectionTitle('GENERATING AND EVALUATING PATCH & WSI CLASSIFIER')
     
     #Create classifier model
-    modelClassifier_patches = Classifier('patches', patchNames_patches, patchFilenames_patches, patchSampleNames_patches, locations_patches, sampleNames_patches, WSIFilenames_patches, patchLabels=patchLabels_patches)
+    modelClassifier_patches = Classifier('patches', patchNames_patches, patchFilenames_patches, patchSampleNames_patches, locations_patches, sampleNames_patches, WSIFilenames_patches, WSISampleNames=WSISampleNames_WSI, WSILabels=WSILabels_WSI, patchLabels=patchLabels_patches)
     
     #Train model components; 'original' uses cross-validation for evaluation and trains on all data when exporting
     if classifierModel == 'updated': modelClassifier_patches.train()

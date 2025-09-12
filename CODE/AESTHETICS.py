@@ -27,7 +27,7 @@ def programTitle(versionNum, configFileName):
     
     #Generate and output the program header
     header = "\
-"+"     _______   ______  __    __ _______   ______\n\
+"+" _______   ______  __    __ _______   ______\n\
 "+"|       \ /      \|  \  |  \       \ /      \ \n\
 "+"| ▓▓▓▓▓▓▓\  ▓▓▓▓▓▓\ ▓▓\ | ▓▓ ▓▓▓▓▓▓▓\  ▓▓▓▓▓▓\n\
 "+"| ▓▓__| ▓▓ ▓▓__| ▓▓ ▓▓▓\| ▓▓ ▓▓  | ▓▓ ▓▓___\▓▓\n\

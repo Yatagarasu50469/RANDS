@@ -22,7 +22,7 @@ class DataPreprocessing_Classifier(Dataset):
 class Classifier():
     
     #Load patches specified by provided filenames, extract relevant features, and setup additional model components needed for training/evaluation
-    def __init__(self, dataType, patchNames, patchFilenames, patchSampleNames, patchLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', patchLabels=None):
+    def __init__(self, dataType, patchNames, patchFilenames, patchSampleNames, patchLocations, sampleNames, WSIFilenames, cropData=[], paddingData=[], shapeData=[], suffix='', WSISampleNames=None, WSILabels=None, patchLabels=None):
         
         #Store input variables internally
         self.dataType = dataType
@@ -36,6 +36,8 @@ class Classifier():
         self.paddingData = paddingData
         self.shapeData = shapeData
         self.suffix = suffix
+        self.WSISampleNames = WSISampleNames
+        self.WSILabels = WSILabels
         self.patchLabels = patchLabels
         
         #Prepare data objects for obtaining/processing PyTorch model inputs
@@ -53,7 +55,6 @@ class Classifier():
         
         #Specify internal object data/directories according to data type
         if dataType == 'patches':
-            self.fusionMode = fusionMode_patches
             self.overwrite_features = overwrite_patches_features
             self.overwrite_saliencyMaps = overwrite_patches_saliencyMaps
             self.visualizeSaliencyMaps = visualizeSaliencyMaps_patches
@@ -71,7 +72,6 @@ class Classifier():
             self.dir_visuals_fusionGrids = dir_patches_visuals_fusionGrids
             self.dir_visuals_overlaidFusionGrids = dir_patches_visuals_overlaidFusionGrids
         elif dataType == 'recon':
-            self.fusionMode = fusionMode_recon
             self.overwrite_features = overwrite_recon_features
             self.overwrite_saliencyMaps = overwrite_recon_saliencyMaps
             self.visualizeSaliencyMaps = visualizeSaliencyMaps_recon
@@ -96,9 +96,8 @@ class Classifier():
         else: self.patchFeatures = np.load(self.dir_features + 'patchFeatures'+self.suffix+'.npy', allow_pickle=True)
         
         #Extract or load saliency map data for the indicated patch files
-        if self.fusionMode: 
-            if self.overwrite_saliencyMaps: self.computeSalicencyMaps()
-            else: self.patchWeights = np.load(self.dir_saliencyMaps + 'patchWeights'+self.suffix+'.npy', allow_pickle=True)
+        if self.overwrite_saliencyMaps: self.computeSalicencyMaps()
+        else: self.patchWeights = np.load(self.dir_saliencyMaps + 'patchWeights'+self.suffix+'.npy', allow_pickle=True)
         
     def computeFeatures(self):
         
@@ -164,22 +163,21 @@ class Classifier():
         self.patchWeights = []
         for index, saliencyMap in tqdm(enumerate(self.saliencyMaps), total=len(self.saliencyMaps), desc='Saliency Processing', leave=True, ascii=asciiFlag): 
             
-            #If visualizations are enabled
+            #If visualizing, store the saliency map to disk and load WSI; regardless, obtain WSI size
             if self.visualizeSaliencyMaps:
-                
-                #Store the saliency map to disk (keep at original output dimensions; can use lossless given the size)
                 _ = exportImage(self.dir_visuals_saliencyMaps+'saliencyMap_'+self.sampleNames[index], matplotlib.cm.jet(saliencyMap)[:,:,:-1].astype(np.float32), True)
-                #_ = exportImage(self.dir_visuals_saliencyMaps+'saliencyMap_'+self.sampleNames[index], matplotlib.cm.jet(saliencyMap)[:,:,:-1].astype(np.float32), exportLossless)
-                
-                #Load the sample WSI to be overlaid
                 if overlayGray: overlaid = np.expand_dims(cv2.cvtColor(cv2.imread(self.WSIFilenames[index], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2GRAY), -1)
                 else: overlaid = cv2.cvtColor(cv2.imread(self.WSIFilenames[index], cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
-                
-                #Resize the saliency map to match the WSI dimensions
-                transform = generateTransform(overlaid.shape[:2], False, False)
-                saliencyMap = transform(np.expand_dims(saliencyMap, 0))[0].numpy()
-                
-                #Overlay the saliency map on the WSI and save it to disk
+                resizeShape = overlaid.shape[:2]
+            else: 
+                resizeShape = cv2.imread(self.WSIFilenames[index], 0).shape[:2]
+            
+            #Resize the saliency map to match the WSI dimensions
+            transform = generateTransform(resizeShape, False, False)
+            saliencyMap = transform(np.expand_dims(saliencyMap, 0))[0].numpy()
+            
+            #If visualizing, overlay the saliency map on the WSI and save it to disk
+            if self.visualizeSaliencyMaps:
                 transform = generateTransform([], True, False)
                 overlaid = np.moveaxis(transform(np.moveaxis(overlaid, -1, 0)).numpy(), 0, -1)
                 overlaid = show_cam_on_image(overlaid, saliencyMap, use_rgb=True, colormap=cv2.COLORMAP_HOT, image_weight=1.0-overlayWeight)
@@ -189,45 +187,40 @@ class Classifier():
             patchWeights = []
             for locationIndex, locationData in enumerate(self.patchLocations[np.where(self.patchSampleNames == self.sampleNames[index])[0]]):
                 startRow, startColumn = locationData
-                patchSaliencyMap = saliencyMap[startRow:startRow+patchSize, startColumn:startColumn+patchSize]
-                patchImportance = np.mean(patchSaliencyMap)
-                if patchImportance < 0.25: patchWeights.append(0)
-                else: patchWeights.append(patchImportance)
+                patchWeight = np.mean(saliencyMap[startRow:startRow+patchSize, startColumn:startColumn+patchSize])
+                if patchWeight < 0.25: patchWeights.append(0)
+                else: patchWeights.append(patchWeight)
             self.patchWeights += patchWeights
             
         #Convert list of patch weights to an array and save to disk
         self.patchWeights = np.asarray(self.patchWeights)
         np.save(self.dir_saliencyMaps + 'patchWeights'+self.suffix, self.patchWeights)
     
-    #Classify extracted patch features
+    #Classify extracted patch features, obtaining raw patch predictions and then performing decision fusion
     def predict(self, inputs, weights=None):
-        
-        #Compute the raw patch predictions
         predictions = self.model_XGBClassifier.predict(inputs.astype(np.float32))
-        
-        #If fusion mode is active, multiply the patch predictions (using -1 for benign and +1 for malignant) by the matching weights; positive results are malignant
-        if self.fusionMode: 
-            predictionsFusion = np.where(predictions==0, -1, 1)*weights
-            predictionsFusion = np.where(predictionsFusion>0, 1, 0)
-            return predictions.tolist(), predictionsFusion.tolist()
-        else: 
-            return predictions.tolist()
+        predictionsFusion = np.where(predictions==0, -1, 1)*weights
+        predictionsFusion = np.where(predictionsFusion>0, 1, 0)
+        return predictions.tolist(), predictionsFusion.tolist()
     
-    #Classify WSI, that had component patches classified, according to specified threshold of allowable malignant patches
-    def classifyWSI(self, sampleNames, patchSampleNames, patchLabels, patchPredictions, patchPredictionsFusion): 
-        sampleLabels, samplePredictions, samplePredictionsFusion, samplePatchIndices = [], [], [], []
+    #Classify WSI, that had component patches classified, according ratio of malignant to foreground patches
+    def classifyWSI(self, sampleNames, WSIFilenames, patchSampleNames, patchPredictionsFusion, patchLocations): 
+        samplePredictionsFusion, samplePatchIndices = [], []
         for sampleIndex, sampleName in enumerate(sampleNames):
             patchIndices = np.where(patchSampleNames == sampleName)[0]
             samplePatchIndices.append(patchIndices)
-            if len(patchLabels) > 0: 
-                if thresholdWSI_label == 0: sampleLabels.append((np.sum(patchLabels[patchIndices]) > 0)*1)
-                else: sampleLabels.append((np.mean(patchLabels[patchIndices]) >= thresholdWSI_label)*1)
-            if thresholdWSI_prediction == 0: samplePredictions.append((np.sum(patchPredictions[patchIndices]) > 0)*1)
-            else: samplePredictions.append((np.mean(patchPredictions[patchIndices]) >= thresholdWSI_prediction)*1)
-            if self.fusionMode: 
-                if thresholdWSI_prediction == 0: samplePredictionsFusion.append((np.sum(patchPredictionsFusion[patchIndices]) > 0)*1)
-                else: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction)*1)
-        return np.asarray(sampleLabels), np.asarray(samplePredictions), np.asarray(samplePredictionsFusion), samplePatchIndices
+            #Tracer() TODO: try htis verison again; easier to read
+            #if thresholdWSI_prediction == 0:
+            #    if np.sum(patchPredictionsFusion[patchIndices]) > 0: samplePredictionsFusion.append(1)
+            #    else: samplePredictionsFusion.append(0)
+            #else: 
+            #    if np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction: samplePredictionsFusion.append(1)
+            #    else: samplePredictionsFusion.append(0)
+            #    
+            if thresholdWSI_prediction == 0: samplePredictionsFusion.append((np.sum(patchPredictionsFusion[patchIndices]) > 0)*1)
+            else: samplePredictionsFusion.append((np.mean(patchPredictionsFusion[patchIndices]) >= thresholdWSI_prediction)*1)
+            
+        return np.asarray(samplePredictionsFusion), samplePatchIndices
     
     #Perform cross-validation
     def crossValidation(self):
@@ -244,7 +237,7 @@ class Classifier():
             foldsPatchLocations.append(list(self.patchLocations[patchIndices]))
             foldsFeatures.append(list(self.patchFeatures[patchIndices]))
             foldsLabels.append(list(self.patchLabels[patchIndices]))
-            if self.fusionMode: foldsWeights.append(list(self.patchWeights[patchIndices]))
+            foldsWeights.append(list(self.patchWeights[patchIndices]))
             foldsPatchSampleNames.append(list(self.patchSampleNames[patchIndices]))
             foldsPatchNames.append(list(self.patchNames[patchIndices]))            
         
@@ -254,6 +247,7 @@ class Classifier():
         foldsPatchSampleNames = np.concatenate(foldsPatchSampleNames)
         foldsPatchNames = np.concatenate(foldsPatchNames)
         foldsWSIFilenames = np.concatenate([self.WSIFilenames[np.where(self.sampleNames == sampleName)[0]] for sampleName in foldsSampleNames])
+        foldsSampleLabels = np.concatenate([self.WSILabels[np.where(self.WSISampleNames == sampleName)[0]] for sampleName in foldsSampleNames])
         
         #Check class distribution between the folds
         #print('B\t M \t Total')
@@ -272,11 +266,8 @@ class Classifier():
             if len(gpus) > 0: dataInput = cp.asarray(dataInput)
             
             #Classify patches in the specified, remaining fold
-            if self.fusionMode: 
-                predictions, predictionsFusion = self.predict(dataInput, np.asarray(foldsWeights[foldNum]))
-                foldsPatchPredictionsFusion += predictionsFusion
-            else:
-                predictions = self.predict(dataInput)
+            predictions, predictionsFusion = self.predict(dataInput, np.asarray(foldsWeights[foldNum]))
+            foldsPatchPredictionsFusion += predictionsFusion
             foldsPatchPredictions += predictions
             
             #Clear the XGBClassifier model and data on GPU
@@ -291,44 +282,36 @@ class Classifier():
         foldsPatchPredictionsFusion = np.asarray(foldsPatchPredictionsFusion)
         
         #Classify WSI
-        foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, _ = self.classifyWSI(foldsSampleNames, foldsPatchSampleNames, foldsLabels, foldsPatchPredictions, foldsPatchPredictionsFusion)
+        foldsSamplePredictionsFusion, _ = self.classifyWSI(foldsSampleNames, foldsWSIFilenames, foldsPatchSampleNames, foldsPatchPredictionsFusion, foldsPatchLocations)
         
         #Evaluate per-sample results
-        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictions, foldsSamplePredictionsFusion, foldsPatchSampleNames, foldsPatchNames, foldsLabels, foldsPatchPredictions, foldsPatchPredictionsFusion, foldsPatchLocations)
+        self.processResultsWSI(foldsSampleNames, foldsWSIFilenames, foldsSampleLabels, foldsSamplePredictionsFusion, foldsPatchSampleNames, foldsPatchNames, foldsLabels, foldsPatchPredictions, foldsPatchPredictionsFusion, foldsPatchLocations)
     
-    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictions, samplePredictionsFusion, patchSampleNames, patchNames, patchLabels, patchPredictions, patchPredictionsFusion, patchLocations):
+    def processResultsWSI(self, sampleNames, WSIFilenames, sampleLabels, samplePredictionsFusion, patchSampleNames, patchNames, patchLabels, patchPredictions, patchPredictionsFusion, patchLocations):
         
         #Save patch results to disk
-        if len(patchLabels) > 0: dataPrintout, dataPrintoutNames = [patchNames, patchLabels, patchPredictions], ['Names', 'Labels', 'Predictions']
-        else: dataPrintout, dataPrintoutNames = [patchNames, patchPredictions], ['Names', 'Predictions']
-        if self.fusionMode: 
-            dataPrintout.append(patchPredictionsFusion)
-            dataPrintoutNames.append('Fusion Predictions')
+        if len(patchLabels) > 0: dataPrintout, dataPrintoutNames = [patchNames, patchLabels, patchPredictions, patchPredictionsFusion], ['Names', 'Labels', 'Predictions', 'Fusion Predictions']
+        else: dataPrintout, dataPrintoutNames = [patchNames, patchPredictions, patchPredictionsFusion], ['Names', 'Predictions', 'Fusion Predictions']
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_patches.csv', index=False)
         
         #Save WSI results to disk
-        if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictions], ['Names', 'Labels', 'Predictions']
-        else: dataPrintout, dataPrintoutNames = [sampleNames, samplePredictions], ['Names', 'Predictions']
-        if self.fusionMode: 
-            dataPrintout.append(samplePredictionsFusion)
-            dataPrintoutNames.append('Fusion Predictions') 
+        if len(sampleLabels) > 0: dataPrintout, dataPrintoutNames = [sampleNames, sampleLabels, samplePredictionsFusion], ['Names', 'Labels', 'Fusion Predictions']
+        else: dataPrintout, dataPrintoutNames = [sampleNames, samplePredictionsFusion], ['Names', 'Fusion Predictions']
         dataPrintout = pd.DataFrame(np.asarray(dataPrintout)).transpose()
         dataPrintout.columns=dataPrintoutNames
         dataPrintout.to_csv(self.dir_results + 'predictions_WSI.csv', index=False)
         
-        #Evaluate patch results if labels/predictions are available
-        if len(patchLabels) > 0 and len(patchPredictions) > 0: 
+        #Evaluate patch/WSI results if labels are available
+        if len(patchLabels) > 0: 
             if len(patchLabels) != len(patchPredictions): sys.exit('\nError - The number of patch labels does not match the number of predictions.\n')
+            if len(patchLabels) != len(patchPredictionsFusion): sys.exit('\nError - The number of patch labels does not match the number of fusion predictions.\n')
             computeClassificationMetrics(patchLabels, patchPredictions, self.dir_results, '_patches_initial')
-            if self.fusionMode: computeClassificationMetrics(patchLabels, patchPredictionsFusion, self.dir_results, '_patches_fusion')
-        
-        #Evaluate WSI results if labels/predictions are available
-        if len(sampleLabels) > 0 and len(samplePredictions) > 0: 
-            if len(sampleLabels) != len(samplePredictions): sys.exit('\nError - The number of WSI labels does not match the number of predictions.\n')
-            computeClassificationMetrics(sampleLabels, samplePredictions, self.dir_results, '_WSI_initial')
-            if self.fusionMode: computeClassificationMetrics(sampleLabels, samplePredictionsFusion, self.dir_results, '_WSI_fusion')
+            computeClassificationMetrics(patchLabels, patchPredictionsFusion, self.dir_results, '_patches_fusion')
+        if len(sampleLabels) > 0: 
+            if len(sampleLabels) != len(samplePredictionsFusion): sys.exit('\nError - The number of WSI labels does not match the number of fusion predictions.\n')
+            computeClassificationMetrics(sampleLabels, samplePredictionsFusion, self.dir_results, '_WSI_fusion')
         
         #If the labels/predictions should be mapped visually onto the WSI
         if self.visualizeLabelGrids or self.visualizePredictionGrids:
@@ -347,9 +330,8 @@ class Classifier():
                 if self.visualizePredictionGrids:
                     gridOverlay_Predictions = np.zeros(imageWSI.shape, dtype=np.uint8)
                     colorsPredictions = (cmapClasses(patchPredictions)[:,:3].astype(np.uint8)*255).tolist()
-                    if self.fusionMode: 
-                        gridOverlay_PredictionsFusion = np.zeros(imageWSI.shape, dtype=np.uint8)
-                        colorsFusion = (cmapClasses(patchPredictionsFusion)[:,:3].astype(np.uint8)*255).tolist()
+                    gridOverlay_PredictionsFusion = np.zeros(imageWSI.shape, dtype=np.uint8)
+                    colorsFusion = (cmapClasses(patchPredictionsFusion)[:,:3].astype(np.uint8)*255).tolist()
                 if self.visualizeLabelGrids: 
                     gridOverlay_GT = np.zeros(imageWSI.shape, dtype=np.uint8)
                     colorsLabels = (cmapClasses(patchLabels)[:,:3].astype(np.uint8)*255).tolist()
@@ -359,14 +341,8 @@ class Classifier():
                     if self.visualizeLabelGrids: gridOverlay_GT = rectangle(gridOverlay_GT, posStart, posEnd, colorsLabels[patchIndex])
                     if self.visualizePredictionGrids:
                         gridOverlay_Predictions = rectangle(gridOverlay_Predictions, posStart, posEnd, colorsPredictions[patchIndex])
-                        if self.fusionMode: gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[patchIndex])
+                        gridOverlay_PredictionsFusion = rectangle(gridOverlay_PredictionsFusion, posStart, posEnd, colorsFusion[patchIndex])
                     
-                #Store overlays to disk
-                if self.visualizeLabelGrids: _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
-                if self.visualizePredictionGrids:
-                    _ = exportImage(self.dir_visuals_predictionGrids+'predictionsGrid_'+sampleName, gridOverlay_Predictions, exportLossless)
-                    if self.fusionMode: _ = exportImage(self.dir_visuals_fusionGrids+'fusionGrid_'+sampleName, gridOverlay_PredictionsFusion, exportLossless)
-                
                 #Overlay grids on top of WSI and store to disk
                 if self.visualizeLabelGrids: 
                     imageWSI_GT = cv2.addWeighted(imageWSI, 1.0, gridOverlay_GT, overlayWeight, 0.0)
@@ -374,9 +350,18 @@ class Classifier():
                 if self.visualizePredictionGrids: 
                     imageWSI_Predictions = cv2.addWeighted(imageWSI, 1.0, gridOverlay_Predictions, overlayWeight, 0.0)
                     _ = exportImage(self.dir_visuals_overlaidPredictionGrids+'overlaid_predictionsGrid_'+sampleName, imageWSI_Predictions, exportLossless)
-                    if self.fusionMode: 
-                        imageWSI_PredictionsFusion = cv2.addWeighted(imageWSI, 1.0, gridOverlay_PredictionsFusion, overlayWeight, 0.0)
-                        _ = exportImage(self.dir_visuals_overlaidFusionGrids+'overlaid_fusionGrid_'+sampleName, imageWSI_PredictionsFusion, exportLossless)
+                    imageWSI_PredictionsFusion = cv2.addWeighted(imageWSI, 1.0, gridOverlay_PredictionsFusion, overlayWeight, 0.0)
+                    _ = exportImage(self.dir_visuals_overlaidFusionGrids+'overlaid_fusionGrid_'+sampleName, imageWSI_PredictionsFusion, exportLossless)
+                
+                #Store overlays to disk
+                if self.visualizeLabelGrids: 
+                    gridOverlay_GT = cv2.cvtColor(np.dstack((gridOverlay_GT, np.uint8((np.sum(gridOverlay_GT, axis=-1) > 0)*255))), cv2.COLOR_RGBA2BGRA)
+                    _ = exportImage(self.dir_visuals_labelGrids+'labelGrid_'+sampleName, gridOverlay_GT, exportLossless)
+                if self.visualizePredictionGrids:
+                    gridOverlay_Predictions = cv2.cvtColor(np.dstack((gridOverlay_Predictions, np.uint8((np.sum(gridOverlay_Predictions, axis=-1) > 0)*255))), cv2.COLOR_RGBA2BGRA)
+                    _ = exportImage(self.dir_visuals_predictionGrids+'predictionsGrid_'+sampleName, gridOverlay_Predictions, exportLossless)
+                    gridOverlay_PredictionsFusion = cv2.cvtColor(np.dstack((gridOverlay_PredictionsFusion, np.uint8((np.sum(gridOverlay_PredictionsFusion, axis=-1) > 0)*255))), cv2.COLOR_RGBA2BGRA)
+                    _ = exportImage(self.dir_visuals_fusionGrids+'fusionGrid_'+sampleName, gridOverlay_PredictionsFusion, exportLossless)
     
     #Train a new XGB Classifier model
     def train(self, inputs, labels):
@@ -412,8 +397,7 @@ class Classifier():
         if len(gpus) > 0: dataInput = cp.asarray(dataInput)
         
         #Classify patches
-        if self.fusionMode: patchPredictions, patchPredictionsFusion = self.predict(dataInput, self.patchWeights)
-        else: patchPredictions, patchPredictionsFusion = self.predict(dataInput), []
+        patchPredictions, patchPredictionsFusion = self.predict(dataInput, self.patchWeights)
         patchPredictions, patchPredictionsFusion = np.asarray(patchPredictions), np.asarray(patchPredictionsFusion)
         
         #Clear the XGBClassifier model and data on GPU
@@ -423,7 +407,7 @@ class Classifier():
             cp._default_memory_pool.free_all_blocks()
         
         #Classify WSI
-        _, samplePredictions, samplePredictionsFusion, samplePatchIndices = self.classifyWSI(self.sampleNames, self.patchSampleNames, [], patchPredictions, patchPredictionsFusion)
+        samplePredictions, samplePredictionsFusion, samplePatchIndices = self.classifyWSI(self.sampleNames, self.WSIFilenames, self.patchSampleNames, [], patchPredictionsFusion, self.patchLocations)
 
         #Evaluate per-sample results
         self.processResultsWSI(self.sampleNames, self.WSIFilenames, [], samplePredictions, samplePredictionsFusion, self.patchSampleNames, self.patchNames, [], patchPredictions, patchPredictionsFusion, self.patchLocations)
@@ -438,14 +422,12 @@ class Classifier():
                 predictionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictions[patchIndices]
                 predictionMaps.append(predictionMap)
                 if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'predictionMap_'+sampleName, cmapClasses(predictionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
-                if self.fusionMode:
-                    predictionFusionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
-                    predictionFusionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictionsFusion[patchIndices]
-                    predictionsFusionMaps.append(predictionFusionMap)
-                    if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'fusionMap_'+sampleName, cmapClasses(predictionFusionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
+                predictionFusionMap = np.full((self.shapeData[sampleIndex]), valueBackground)
+                predictionFusionMap[predictionLocations[:,0], predictionLocations[:,1]] = patchPredictionsFusion[patchIndices]
+                predictionsFusionMaps.append(predictionFusionMap)
+                if visualizeInputData_recon: _ = exportImage(dir_recon_visuals_inputData+'fusionMap_'+sampleName, cmapClasses(predictionFusionMap)[:,:,:3].astype(np.uint8)*255, exportLossless)
             predictionMaps = np.asarray(predictionMaps, dtype='object')
             np.save(dir_recon_inputData + 'predictionMaps', predictionMaps)
-            if self.fusionMode: 
-                predictionsFusionMaps = np.asarray(predictionsFusionMaps, dtype='object')
-                np.save(dir_recon_inputData + 'fusionMaps', predictionsFusionMaps)
+            predictionsFusionMaps = np.asarray(predictionsFusionMaps, dtype='object')
+            np.save(dir_recon_inputData + 'fusionMaps', predictionsFusionMaps)
                 
