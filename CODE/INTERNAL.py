@@ -10,8 +10,8 @@ dir_data = '.' + os.path.sep + 'DATA' + os.path.sep
 dir_results = '.' + os.path.sep + 'RESULTS' + os.path.sep
 dir_classifier_models = dir_results + 'MODELS' + os.path.sep
 
-#Patch classification
-dir_patches_data = dir_data + 'PATCHES' + os.path.sep
+#Known patch classification
+dir_patches_data = dir_data + 'KNOWN' + os.path.sep
 dir_patches_inputPatches = dir_patches_data + 'INPUT_PATCHES' + os.path.sep
 dir_patches_inputWSI = dir_patches_data + 'INPUT_WSI' + os.path.sep
 
@@ -24,7 +24,7 @@ dir_patches_visuals_overlaidSaliencyMaps = dir_patches_visuals + 'OVERLAID_SALIC
 dir_patches_visuals_labelGrids = dir_patches_visuals + 'LABEL_GRIDS' + os.path.sep
 dir_patches_visuals_overlaidLabelGrids = dir_patches_visuals + 'OVERLAID_LABEL_GRIDS' + os.path.sep
 
-dir_patches_results = dir_results + 'PATCHES' + os.path.sep
+dir_patches_results = dir_results + 'KNOWN' + os.path.sep
 dir_patches_results_visuals = dir_patches_results + 'VISUALS' + os.path.sep
 dir_patches_visuals_predictionGrids = dir_patches_results_visuals + 'PREDICTION_GRIDS' + os.path.sep
 dir_patches_visuals_overlaidPredictionGrids = dir_patches_results_visuals + 'OVERLAID_PREDICTION_GRIDS' + os.path.sep
@@ -32,7 +32,7 @@ dir_patches_visuals_fusionGrids = dir_patches_results_visuals + 'FUSION_GRIDS' +
 dir_patches_visuals_overlaidFusionGrids = dir_patches_results_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
 
 #Reconstruction
-dir_recon_data = dir_data + 'RECON' + os.path.sep
+dir_recon_data = dir_data + 'UNKNOWN' + os.path.sep
 dir_recon_inputWSI = dir_recon_data + 'INPUT_WSI' + os.path.sep
 dir_recon_patches = dir_recon_data + 'OUTPUT_PATCHES' + os.path.sep
 dir_recon_features = dir_recon_data + 'OUTPUT_FEATURES' + os.path.sep
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     if classifierRecon:
         if not overwrite_recon_patches and len(glob.glob(dir_recon_patches+'*.npy'))==0: overwrite_recon_patches = True
         if not overwrite_recon_features and len(glob.glob(dir_recon_features+'*.npy'))==0: overwrite_reocn_features = True
-        if not overwrite_recon_saliencyMaps and fusionMode_recon and len(glob.glob(dir_recon_saliencyMaps+'*.npy'))==0: overwrite_recon_saliencyMaps = True
+        if not overwrite_recon_saliencyMaps and evaluateMethodWSI == 'GradCam++' and len(glob.glob(dir_recon_saliencyMaps+'*.npy'))==0: overwrite_recon_saliencyMaps = True
     else:
         overwrite_recon_patches = False
         overwrite_recon_features = False

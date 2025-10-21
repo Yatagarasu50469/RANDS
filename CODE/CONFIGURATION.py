@@ -67,56 +67,60 @@ availableThreads = 0
 #L2: CLASSIFICATION
 ##################################################################
 
-#Which classifier model file should be loaded: 'original' or 'updated' (default: original)
+#Which classifier model file should be loaded: 'original' or 'updated' (default: 'original')
 classifierModel = 'original'
 
-#==================================================================
-#L2-1: PATCHES
-#==================================================================
+#What mechansim should be used for WSI evaluation: 'gradcam++', 'majority' (default: 'gradcam++')
+evaluateMethodWSI = 'gradcam++'
 
-#******************************************************************
-#L2-1-1: ORIGINAL CLASSIFICATION MODEL
-#******************************************************************
-
-#Should features be extracted for patches and overwrite previously generated files
-overwrite_patches_features = True
-
-#Should saliency maps be determined for patches and overwrite previously generated files
-overwrite_patches_saliencyMaps = True
-
-#Should the decision fusion mode be used for patch classification (default: True)
-fusionMode_patches = True
-
-#Should saliency maps and their overlays be visualized for patch WSI
-visualizeSaliencyMaps_patches = True
-
-#Should label grids and their overlays be visualized for patch WSI; will overwrite previously generated files
-#Files should be updated if thresholdWSI is changed
-visualizeLabelGrids_patches = True
-
-#Should prediction grids and their overlays be visualized for patch WSI
-visualizePredictionGrids_patches = True
-
-#What ratio of malignant to benign patches should be used to predict a whole WSI as malignant (default: 0.15)
+#At what ratio of malignant to benign patches should a WSI be predicted to be malignant  (default: 0.15)
 #When set to 0, will label a WSI as malignant if any one patch is predicted as malignant
 #Unknown what the original work used for this value, but for original work replication, a value of 0.15 seems appropriate 
 #Replication of original results occurs with values between 0.12-0.19
 #If this value is changed, then should enable visualizeLabelGrids_patches to update stored data
 thresholdWSI_prediction = 0.15
 
-#If folds for XGB classifier cross validation should be manually defined (e.g. [['S1', 'S3'], ['S4', 'S2']]), else use specify number of folds to generate
-#============================================================================================================================
+#Which channel should be used to assess whether patches are in the foreground: 'red', 'green', 'gray' (default: 'red')
+#'gray' used for original work replication
+channel_extraction = 'red'
+
+#At what ratio of chosen-channel (channel_extraction) values >= backgroundLevel in a patch should a patch be considered (default: 0.2)
+#0.8 used for original work replication
+thresholdPatch_extraction = 0.2
+
+#Minimum chosen channel value [0, 255] for a location to contribute to the backgroundThreshold criteria (default: 5)
+backgroundLevel = 5
+
+#When splitting WSI images, what size should the resulting patches be (default: 400)
+#Should remain consistent with patch sizes given for training
+patchSize = 400
+
+#Specify what symmetrical dimension patches should be resized to; if no resizing is desired leave as 0 (default: 224)
+#Leaving as 0 will increase training time (also must change batchsizeClassifier), but can lead to improved scores
+#Original implementation uses 224, though with adaptive average pooling this isn't actually neccessary
+resizeSize_patches = 224
+
+#Specify what symmetrical dimension WSI should be resized to when generating saliency maps (default: 224)
+#If fusion method were to be further developed, this should be changed to maintain the original sample aspect ratio. 
+resizeSize_WSI = 224
+
+#==================================================================
+#L2-1: CROSS-VALIDATION
+#==================================================================
+
+#Specify folds for cross validation if desired (e.g. [['1', '3'], [S4', '2']]), else specify number of folds to generate (default: 5)
+manualFolds = 5
 
 #Dataset 1
 ##############################################################################################################################
 #Default matches folds used in prior work (https://doi.org/10.3389/fonc.2023.1179025)
 #Omits 6 available samples, with folds holding: 11, 12, 12, 12, 13 samples respectively; this may have been to better balance class distribution
 #Presently, all available (non-excluded) samples (not just those in manualFolds) are currently used for training the exported/utilized final classifier
-manualFolds = [['2_1', '9_3', '11_3', '16_3', '34_1', '36_2', '40_2', '54_2', '57_2', '60_1', '62_1'],
-               ['17_5', '20_3', '23_3', '24_2', '28_2', '30_2', '33_3', '51_2', '52_2', '59_2', '63_3', '66_2'], 
-               ['12_1', '14_2', '22_3', '26_3', '35_4', '44_1', '45_1', '47_2', '49_1', '53_2', '56_2', '68_1'], 
-               ['4_4', '5_3', '8_1', '10_3', '25_3', '27_1', '29_2', '37_1', '42_3', '48_3', '50_1', '69_1'], 
-               ['7_2', '15_4', '19_2', '31_1', '43_1', '46_2', '55_2', '58_2', '61_1', '64_1', '65_1', '67_1', '70_1']]
+#manualFolds = [['2_1', '9_3', '11_3', '16_3', '34_1', '36_2', '40_2', '54_2', '57_2', '60_1', '62_1'],
+#               ['17_5', '20_3', '23_3', '24_2', '28_2', '30_2', '33_3', '51_2', '52_2', '59_2', '63_3', '66_2'], 
+#               ['12_1', '14_2', '22_3', '26_3', '35_4', '44_1', '45_1', '47_2', '49_1', '53_2', '56_2', '68_1'], 
+#               ['4_4', '5_3', '8_1', '10_3', '25_3', '27_1', '29_2', '37_1', '42_3', '48_3', '50_1', '69_1'], 
+#               ['7_2', '15_4', '19_2', '31_1', '43_1', '46_2', '55_2', '58_2', '61_1', '64_1', '65_1', '67_1', '70_1']]
 
 #Datset 2
 ##############################################################################################################################
@@ -150,6 +154,30 @@ manualFolds = [['2_1', '9_3', '11_3', '16_3', '34_1', '36_2', '40_2', '54_2', '5
 
 #============================================================================================================================
 
+#==================================================================
+#L2-2: CLASSIFICATION MODELS
+#==================================================================
+
+#******************************************************************
+#L2-2-1: ORIGINAL
+#******************************************************************
+
+#Should features be extracted for patches and overwrite previously generated files
+overwrite_patches_features = True
+
+#Should saliency maps be determined for patches and overwrite previously generated files
+overwrite_patches_saliencyMaps = True
+
+#Should saliency maps and their overlays be visualized for patch WSI
+visualizeSaliencyMaps_patches = True
+
+#Should label grids and their overlays be visualized for patch WSI; will overwrite previously generated files
+#Files should be updated if thresholdWSI is changed
+visualizeLabelGrids_patches = True
+
+#Should prediction grids and their overlays be visualized for patch WSI
+visualizePredictionGrids_patches = True
+
 #Which pre-trained weight sets should be used for ResNet and DenseNet model: 'IMAGENET1K_V1', 'IMAGENET1K_V2'
 #Unclear which weights were used for TensorFlow ResNet50 variant in original implementation, but V2 did improve scores a bit when using resizeSize = 0
 weightsResNet = 'IMAGENET1K_V2'
@@ -158,15 +186,15 @@ weightsResNet = 'IMAGENET1K_V2'
 weightsDenseNet = 'IMAGENET1K_V1'
 
 #******************************************************************
-
-#******************************************************************
-#L2-1-2: UPDATED CLASSIFICATION MODEL
+#L2-2-2: UPDATED
 #******************************************************************
 #TBD
 #******************************************************************
 
 #==================================================================
-#L2-2: RECONSTRUCTION DATA GENERATION
+
+#==================================================================
+#L2-3: RECONSTRUCTION DATA GENERATION
 #==================================================================
 
 #Should WSI preparation and patch extraction (for patch-specific WSI) overwrite previously generated files
@@ -177,9 +205,6 @@ overwrite_recon_features = True
 
 #Should saliency maps be determined for WSI extracted patches (for patch-specific WSI) and overwrite previously generated files
 overwrite_recon_saliencyMaps = True
-
-#Should the decision fusion mode be used for patch classification (default: True)
-fusionMode_recon = True
 
 #Should visuals of the reconstruction model input data be generated
 visualizeInputData_recon = True
@@ -333,30 +358,6 @@ recon_maxStagnation = 10
 ###########################################################################################################
 #L4: RARELY CHANGED PARAMETERS
 ###########################################################################################################
-
-#Which channel should be used to assess whether patches are in the foreground: 'red', 'green', 'gray' (default: 'red')
-#'gray' used for original work replication
-channel_extraction = 'red'
-
-#Ratio of chosen-channel (channel_extraction) values >= backgroundLevel in a patch, below which the patch will not be considered (default: 0.2)
-#0.8 used for original work replication
-thresholdPatch_extraction = 0.2
-
-#Minimum chosen channel value [0, 255] for a location to contribute to the backgroundThreshold criteria (default: 5)
-backgroundLevel = 5
-
-#When splitting WSI images, what size should the resulting patches be (default: 400)
-#Should remain consistent with patch sizes given for training
-patchSize = 400
-
-#Specify what symmetrical dimension patches should be resized to; if no resizing is desired leave as 0 (default: 224)
-#Leaving as 0 will increase training time (also must change batchsizeClassifier), but can lead to improved scores
-#Original implementation uses 224, though with adaptive average pooling this isn't actually neccessary
-resizeSize_patches = 224
-
-#Specify what symmetrical dimension WSI should be resized to when generating saliency maps (default: 224)
-#If fusion method were to be further developed, this should be changed to maintain the original sample aspect ratio. 
-resizeSize_WSI = 224
 
 #How thick should the grid lines be when generating overlay images (defualt: 50)
 gridThickness = 50

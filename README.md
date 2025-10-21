@@ -6,8 +6,8 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       12 September 2025
-<b>VERSION:</b>        0.0.5
+<b>MODIFIED:</b>       21 October 2025
+<b>VERSION:</b>        0.0.6
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
 <b>FUNDING:</b>        Development of RANDS has been funded by and developed for NIH Grant 5R01EB033806
@@ -48,7 +48,7 @@
 ----->MAIN_DIRECTORY                          #Complete program contents
   |----->README.md                            #Program documentation
   |----->CHANGELOG.md                         #Versioning and currently anticipated development order
-  |----->START.py                             #Program startup; initializes sequential run of CONFIG_# files in subprocesses
+  |----->RANDS.py                             #Program startup; initializes sequential run of CONFIG_# files in subprocesses
   |----->CONFIG_#-description.py              #Configuration for a single program run
   |----->CODE                                 #Location to store any code used in the course of running the program
   |  |----->AESTHETICS.py                     #Handles UI elements at runtime
@@ -154,9 +154,6 @@ Follow the instructions provided in the pre-installation guide specific to your 
     numpy              1.26.4
     opencv-python      4.10.0.84
 	openpyxl           3.1.5
-    onnxmltools        1.12.0
-    onnxruntime        1.19.0
-    onnxruntime-gpu    1.19.0
     pandas             2.2.2
     pathlib            1.0.1
     pillow             10.4.0
@@ -166,7 +163,6 @@ Follow the instructions provided in the pre-installation guide specific to your 
     scikit-image       0.22.0
     scikit-learn       1.5.1
     scipy              1.14.0
-    skl2onnx           1.17.0
     torch              2.2.2+cu121
     torchaudio         2.2.2+cu121
     torchvision        0.17.2+cu121
@@ -218,8 +214,7 @@ Open a terminal window and perform the following operations:
 Open a terminal or command prompt (**not as an administrator**) and run the commands shown below. 
     
 	$ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-    $ pip3 install opencv-python datetime glob2 IPython pandas pathlib psutil matplotlib numpy numba pillow ray[serve]==2.33.0 scipy scikit-learn natsort scikit-image tqdm py7zr multivolumefile notebook==6.5.6 ipywidgets openpyxl xgboost grad-cam onnxmltools skl2onnx onnxruntime cupy-cuda12x
-    $ pip3 install onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+    $ pip3 install opencv-python datetime glob2 IPython pandas pathlib psutil matplotlib numpy numba pillow ray[serve]==2.33.0 scipy scikit-learn natsort scikit-image tqdm py7zr multivolumefile notebook==6.5.6 ipywidgets openpyxl xgboost grad-cam cupy-cuda12x
 
 Packages that may no longer be required (if there is a runtime error that references one of these packages, please notify the repository maintainer): 
 
@@ -236,10 +231,11 @@ All parameters may be altered in a configuration file (Ex. ./CONFIG_0.py), which
     L0: Tasks to be Performed
     L1: Compute Hardware & Global Methods
     L2: Classification
-	|----->L2-1: Patches
-	|  |----->L2-1-1: Original Classification Model
-	|  |----->L2-1-2: Updated Classification Model
-	|----->L2-2: Reconstruction Data Generation
+	|----->L2-1: Cross-Validation
+	|----->L2-2: Classification Models
+	|  |----->L2-1-1: Original
+	|  |----->L2-1-2: Updated
+	|----->L2-3: Reconstruction Data Generation
     L3: Reconstruction & Sampling
 	|----->L3-1: Training
 	|----->L3-2: Architecture
@@ -347,6 +343,11 @@ Ray/Python pin objects in memory if any reference to them still exists; referenc
 **Subject:** Breast Cancer Classification for DUV-FSM   
 **Available:** (https://github.com/tyrellto/breast-cancer-research/tree/main)   
 **Note**: Original classification network code for RANDS was derived from this existing work (published under GNU GPLv3), but **entirely** rewritten. 
+
+**Prior/Original and Diffusion Network**  
+**Subject:** Breast Cancer Classification for DUV-FSM   
+**Citation(s):** G. S. Salem, T. To, J. Jorns, T. Yen, B. Yu, and D. H. Ye, “Deep learning for automated detection of breast cancer in deep ultraviolet fluorescence images with diffusion probabilistic model,” arXiv (Cornell University), Jul. 2024, doi: https://doi.org/10.1109/isbi56570.2024.10635349.   
+**Available:** (https://pubmed.ncbi.nlm.nih.gov/40313564/)   
 
 **Prior/Original Classification Network**    
 **Subject:** Breast Cancer Classification for DUV-FSM   

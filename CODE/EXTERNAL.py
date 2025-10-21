@@ -73,8 +73,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import natsort
 import numpy as np
-import onnx
-import onnxruntime
 import pandas as pd
 import pickle
 import PIL
@@ -89,7 +87,6 @@ import requests
 import scipy
 import skimage
 import shutil
-import skl2onnx
 import time
 
 from contextlib import nullcontext
@@ -98,8 +95,6 @@ from matplotlib import colors
 from matplotlib.pyplot import figure
 from numba import cuda
 from numba import jit
-from onnxmltools.convert import convert_xgboost
-from onnxmltools.convert.common import data_types
 from PIL import Image
 from pytorch_grad_cam import GradCAMPlusPlus
 from pytorch_grad_cam.utils.image import show_cam_on_image
@@ -111,8 +106,6 @@ from skimage.metrics import structural_similarity as compare_SSIM
 from skimage.metrics import peak_signal_noise_ratio as compare_PSNR
 from skimage.transform import resize
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
-from skl2onnx import to_onnx, update_registered_converter
-from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_shapes
 if jupyterNotebook: from tqdm import tqdm
 else: from tqdm.auto import tqdm
 from tqdm.auto import tqdm

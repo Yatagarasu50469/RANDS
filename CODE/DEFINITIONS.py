@@ -4,6 +4,8 @@
 
 #Load/synchronize data labeling, drop excluded rows, and extract relevant metadata
 def loadMetadata_patches(filename):
+    
+    #Load patch-level metadata; may or may not contain Edge/Boundary columns
     try: metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label', 'Edge', 'Boundary'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str, 'Edge':str, 'Boundary':str})
     except: metadata = pd.read_csv(filename, header=0, names=['Sample', 'Index', 'Row', 'Column', 'Label'], converters={'Sample':str,'Index':str, 'Row':int, 'Column':int, 'Label':str})
     
