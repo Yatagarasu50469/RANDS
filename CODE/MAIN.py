@@ -21,7 +21,7 @@ exec(open("./CODE/CONFIGURATION.py", encoding='utf-8').read())
 exec(open(configFileName, encoding='utf-8').read())
 
 #Import and setup external libraries
-exec(open("./CODE/EXTERNAL.py", encoding='utf-8').read())
+exec(open("./CODE/STARTUP.py", encoding='utf-8').read())
 
 #Setup any configuration-derived global variables
 exec(open("./CODE/DERIVED.py", encoding='utf-8').read())
@@ -36,9 +36,9 @@ exec(open("./CODE/INTERNAL.py", encoding='utf-8').read())
 exec(open("./CODE/COMPUTE.py", encoding='utf-8').read())
 
 #Setup classifier model definitions
-if classifierModel == 'original': exec(open("./CODE/MODEL_CLASS_ORIGINAL.py", encoding='utf-8').read())
-elif classifierModel == 'updated': exec(open("./CODE/MODEL_CLASS_UPDATED.py", encoding='utf-8').read())
-else: sys.exit('\nError - Unknown classifierModel specified.\n')
+if classifierModel == 'xgb': exec(open("./CODE/MODEL_XGB.py", encoding='utf-8').read())
+elif classifierModel == 'vit': exec(open("./CODE/MODEL_ViT.py", encoding='utf-8').read())
+else: sys.exit('\nError - Unknown classifierModel specified:' + classifierModel + '\n')
 
 #Setup reconstructor model definitions
 exec(open("./CODE/MODEL_RECON.py", encoding='utf-8').read())
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     programTitle(versionNum, configFileName)
     
     #Reset/startup ray
-    resetRay(numberCPUS)
+    #resetRay(numberCPUS)
     
     #Start program counter
     time_programStart = time.perf_counter()

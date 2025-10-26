@@ -41,11 +41,11 @@ simulateRANDS = False
 #L1: COMPUTE HARDWARE & GLOBAL METHODS
 ##################################################################
 
-#How many samples should be submitted in a batch through pytorch models used in classifier
-#Incrementing in powers of 2 recommended to best leverage common GPU hardware designs
-#For ResNet and DenseNet a 2080TI 11GB can handle 64x3x224x224 (resizeSize=224) or 16x3x400x400 (resizeSize=0)
-#In some cases, the GPU memory may not be fully released (even when explicitly told to do so), so using a lower batch size may help prevent OOM
-batchsizeClassifier = 32
+#How many samples should be submitted in a batch through pytorch models used in classifier (default: 1)
+#WARNING: Values > 1 affect the order of operations and computation optimizations, introducing unpredicable artifacts that do change the results!
+#Ref: https://discuss.pytorch.org/t/varying-batch-size-for-pre-trained-model-changes-inference-result-even-in-evaluation-mode/223688
+#At max, ResNet50 & DenseNet169 with a 2080TI 11GB can handle 64 with resizeSize=224 or 16 with resizeSize=0
+batchsizeClassifier = 1
 
 #Which GPU(s) devices should be used (last specified used for training); (default: [-1], any/all available; CPU only: [])
 #Currently limited to a single GPU for training and inferencing
@@ -67,11 +67,14 @@ availableThreads = 0
 #L2: CLASSIFICATION
 ##################################################################
 
-#Which classifier model file should be loaded: 'original' or 'updated' (default: 'original')
-classifierModel = 'original'
+#Which classifier model file should be loaded: 'xgb' or 'vit' (default: 'xgb')
+classifierModel = 'xgb'
 
 #What mechansim should be used for WSI evaluation: 'gradcam++', 'majority' (default: 'gradcam++')
 evaluateMethodWSI = 'gradcam++'
+
+#Should available synthetic patches be used in training (default: True)
+addSyntheticPatches = True
 
 #At what ratio of malignant to benign patches should a WSI be predicted to be malignant  (default: 0.15)
 #When set to 0, will label a WSI as malignant if any one patch is predicted as malignant
@@ -96,7 +99,7 @@ backgroundLevel = 5
 patchSize = 400
 
 #Specify what symmetrical dimension patches should be resized to; if no resizing is desired leave as 0 (default: 224)
-#Leaving as 0 will increase training time (also must change batchsizeClassifier), but can lead to improved scores
+#Leaving as 0 will increase training time (also may need to lower batchsizeClassifier), but can lead to improved scores
 #Original implementation uses 224, though with adaptive average pooling this isn't actually neccessary
 resizeSize_patches = 224
 
@@ -108,7 +111,7 @@ resizeSize_WSI = 224
 #L2-1: CROSS-VALIDATION
 #==================================================================
 
-#Specify folds for cross validation if desired (e.g. [['1', '3'], [S4', '2']]), else specify number of folds to generate (default: 5)
+#Specify folds for cross validation if desired (e.g. [['1', '3'], ['4', '2']]), else specify number of folds to generate (default: 5)
 manualFolds = 5
 
 #Dataset 1
@@ -162,10 +165,20 @@ manualFolds = 5
 #L2-2-1: ORIGINAL
 #******************************************************************
 
+#How many processes should be used for preprocessing patch data; set to -1 for maximum possible
+#Decrease if OOM occurs during feature extraction
+numWorkers_patches = -1
+
+#How many processes should be used for preprocesisng WSI data; set to -1 for maximum possible
+#Decrease if OOM occurs during saliency mapping
+numWorkers_WSI = -1
+
 #Should features be extracted for patches and overwrite previously generated files
+#Patch features do not have associated patch names; if samples used are changed, features must be recomputed!
 overwrite_patches_features = True
 
 #Should saliency maps be determined for patches and overwrite previously generated files
+#Patch weights do not have associated patch names; if samples used are changed, patch weights and originating saliency maps must be recomputed!
 overwrite_patches_saliencyMaps = True
 
 #Should saliency maps and their overlays be visualized for patch WSI
@@ -376,7 +389,7 @@ exportQuality = 90
 #What weight should be used when overlaying data
 overlayWeight = 0.5
 
-#RNG seed value to help ensure run-to-run consistency (-1 to disable)
+#RNG seed value to help ensure run-to-run consistency; set to -1 to disable
 manualSeedValue = 0
 
 #Should warnings and info messages be shown during operation (default: False)

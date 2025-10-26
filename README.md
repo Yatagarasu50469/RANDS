@@ -6,18 +6,18 @@
 # PROGRAM
 <pre>
 <b>NAME:</b>           RANDS
-<b>MODIFIED:</b>       21 October 2025
-<b>VERSION:</b>        0.0.6
+<b>MODIFIED:</b>       26 October 2025
+<b>VERSION:</b>        0.0.7
 <b>LICENSE:</b>        GNU General Public License v3.0
 <b>DESCRIPTION:</b>    Risk Assessment Network for Dynamic Sampling
 <b>FUNDING:</b>        Development of RANDS has been funded by and developed for NIH Grant 5R01EB033806
 	
-<b>AUTHOR(S):</b>      David Helminiak    EECE, Marquette University,       Framework, Classifier, RANDS
-                Tyrell To          EECE, Marquette University,       Original Classifier (See PUBLICATIONS)
+<b>AUTHOR(S):</b>      David Helminiak    EECE, Marquette University,       RANDS
+                Pouya Afshin       COSC, Georgia State University,   Original ViT model (See PUBLICATIONS)
+                Tyrell To          EECE, Marquette University,       Original XGB model (See PUBLICATIONS)
 
 <b>ADVISOR(S):</b>     Dong Hye Ye        COSC, Georgia State University    
                 Bing Yu            BIEN, Marquette University
-    
 </pre>
 ***
 
@@ -45,87 +45,85 @@
 **Note:**  *INPUT_* contents are not generally intended to be altered, *OUTPUT_* contents are expected to change according to configured tasks.  
 
 <pre>
------>MAIN_DIRECTORY                          #Complete program contents
+----->MAIN_DIRECTORY/                         #Complete program contents
   |----->README.md                            #Program documentation
   |----->CHANGELOG.md                         #Versioning and currently anticipated development order
   |----->RANDS.py                             #Program startup; initializes sequential run of CONFIG_# files in subprocesses
   |----->CONFIG_#-description.py              #Configuration for a single program run
-  |----->CODE                                 #Location to store any code used in the course of running the program
+  |----->CODE/                                #Location to store any code used in the course of running the program
   |  |----->AESTHETICS.py                     #Handles UI elements at runtime
   |  |----->CONFIGURATION.py                  #Default configuration parameters to be overridden by CONFIG_#-description.py file(s)
   |  |----->COMPUTE.py                        #Prepare computation CPU/GPU/RAM environment
   |  |----->DEFINITIONS.py                    #Global methods
-  |  |----->EXTERNAL.py                       #Environmental variables and setup of third-party libraries
+  |  |----->STARTUP.py                        #Environmental variables and setup of third-party libraries
   |  |----->INTERNAL.py                       #Directory and file handling
   |  |----->MAIN.py                           #Performs program setup, operations, and shutdown
   |  |----->MODEL_RECON.py                    #Reconstruction model
-  |  |----->MODEL_CLASS_ORIGINAL.py           #Classification model, re-implemented from original work
-  |  |----->MODEL_CLASS_UPDATED.py            #Classification model, new/updated approach
+  |  |----->MODEL_XGB.py                      #XGB classification model, re-implemented from original work
+  |  |----->MODEL_ViT.py                      #ViT classification model, re-implemented from original work
   |  |----->REMOTE.py                         #Parallel actors and methods
   |  |----->RUN_CLASSIFIER.py                 #Train/Evaluate classifier model
   |  |----->RUN_RANDS.py                      #Simulate Risk Assessment Network for Dynamic Sampling
   |  |----->RUN_RECON.py                      #Train/Evaluate reconstruction model
-  |  |----->OTHER                             #Files not directly used in program execution
-  |  |----->SCRIPTS                           #Jupyter notebook files intended for one-time use and/or development
-  |  |  |----->patchDeeperExtraction.ipynb    #Locate and label spatial data for extracted patch images
+  |  |----->STARTUP.py                        #Prepares/defines computational environment, external packages, and program operations
+  |  |----->OTHER/                            #Files not directly used in program execution
+  |  |----->SCRIPTS/                          #Jupyter notebook files intended for one-time use and/or development
+  |  |  |----->patchDeeperExtraction.ipynb     #Locate and label spatial data for extracted patch images
   |  |  |----->patchSegmentationTest.ipynb    #Visualize impact of parameter variation on the selection of patches from WSI
   |  |  |----->ARCHIVE                        #Development files no longer used, but to be retained for reference/documentation
-  |----->DATA                                 #Data directory
-  |  |----->PATCHES                           #Training/evalutation data for patch classification network
-  |  |  |----->INPUT_PATCHES                  #Labeled patches; extracted from the exact images in INPUT_WSI
+  |----->DATA/                                #Data directory
+  |  |----->KNOWN/                            #Training/evalutation data for classification network
+  |  |  |----->INPUT_PATCHES/                 #Labeled patches; extracted from the exact images in INPUT_WSI
   |  |  |  |-----><i>sample#</i>_<i>side#</i>               #Directory corresponding to originating WSI
   |  |  |  |  |----->PS<i>patchData</i>.tif          #Lossless patch image(s); <i>patchData</i> : <i>sample#</i>_<i>side#</i>_<i>patchID#</i>_<i>row#</i>_<i>column#</i>
   |  |  |  |----->metadata_patches.csv        #Patch metadata for every lossless image in the directory
-  |  |  |----->INPUT_WSI                      #Labeled WSI; the exact images INPUT_PATCHES data was extracted from
+  |  |  |----->INPUT_SYNTHETIC_PATCHES/       #Synthetic training data for classification network
+  |  |  |  |-----><i>classLabel</i>                  #Directory corresponding to class label of synthetic patch image(s)
+  |  |  |  |  |-----><i>patchName</i>.tif            #Lossless synthetic patch image(s)
+  |  |  |----->INPUT_WSI/                     #Labeled WSI; the exact images INPUT_PATCHES data was extracted from
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for patch images
-  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for patch images
-  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in patch image classification tasks
-  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
-  |  |  |  |----->LABEL_GRIDS                 #Ground-truth labels spatially visualized in grid form (Green->Benign, Red->Malignant)
-  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
-  |  |  |  |----->OVERLAID_LABEL_GRIDS        #Label grids visualized on WSI
-  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Predictions visualized on WSI
-  |  |  |  |----->OVERLAID_SALIENCY_MAPS      #Saliency maps upsampled with bilinear interpolation and visualized on WSI
-  |  |  |  |----->PREDICTION_GRIDS            #Predictions visually visualized in grid form
-  |  |  |  |----->SALIENCY_MAPS               #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
-  |  |----->RECON                             #Training/evaluation data for reconstruction model (all WSI, including those used for training the classifier)
-  |  |  |----->INPUT_WSI                      #WSI not used for training the classifier for use in the reconstruction model
+  |  |  |----->OUTPUT_FEATURES/               #Resultant feature data generated for patch images
+  |  |  |----->OUTPUT_SALIENCY_MAPS/          #Resultant saliency map (weight data) generated for patch images
+  |  |  |----->OUTPUT_VISUALS/                #Visualizations produced in patch image classification tasks
+  |  |  |  |----->FUSION_GRIDS/               #Fusion predictions visualized in grid form
+  |  |  |  |----->LABEL_GRIDS/                #Ground-truth labels spatially visualized in grid form (Green->Benign, Red->Malignant)
+  |  |  |  |----->OVERLAID_FUSION_GRIDS/      #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_LABEL_GRIDS/       #Label grids visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS/  #Predictions visualized on WSI
+  |  |  |  |----->OVERLAID_SALIENCY_MAPS/     #Saliency maps upsampled with bilinear interpolation and visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS/           #Predictions visually visualized in grid form
+  |  |  |  |----->SALIENCY_MAPS/              #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
+  |  |----->UNKNOWN/                          #Training/evaluation data for reconstruction model (all WSI, including those used for training the classifier)
+  |  |  |----->INPUT_WSI/                     #WSI not used for training the classifier for use in the reconstruction model
   |  |  |  |-----><i>sample#</i>_<i>side#</i>.jpg           #Stitched and BaSIC-processed (not color-corrected) WSI
-  |  |  |----->OUTPUT_PATCHES                 #Patch images/data extracted from WSI
-  |  |  |----->OUTPUT_FEATURES                #Resultant feature data generated for extracted patch images
-  |  |  |----->OUTPUT_INPUT_DATA              #Resultant classifier data to be used as input data for the reconstruction model
-  |  |  |----->OUTPUT_SALIENCY_MAPS           #Resultant saliency map (weight data) generated for extracted patch images
-  |  |  |----->OUTPUT_VISUALS                 #Visualizations produced in classification tasks
-  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
-  |  |  |  |----->INPUT_DATA                  #Classification model predictions; visualizations of input data for reconstruction model
-  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
-  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Predictions visualized on WSI
-  |  |  |  |----->OVERLAID_SALIENCY_MAPS      #Saliency maps upsampled with bilinear interpolation and visualized on WSI
-  |  |  |  |----->PREDICTION_GRIDS            #Predictions visually visualized in grid form
-  |  |  |  |----->SALIENCY_MAPS               #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
-  |----->RESULTS                              #Results directory
-  |  |----->PATCHES                           #Patch classification training/evaluation results
-  |  |  |----->VISUALS                        #Generated visuals for classification of patches and their WSI
-  |  |  |  |----->FUSION_GRIDS                #Fusion predictions visualized in grid form
-  |  |  |  |----->OVERLAID_FUSION_GRIDS       #Fusion predictions visualized on WSI
-  |  |  |  |----->OVERLAID_PREDICTION_GRIDS   #Label grids visualized on WSI
-  |  |  |  |----->PREDICTION_GRIDS            #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
-  |  |  |----->classReport_<i>dataType</i>.csv       #Classification report of common metrics; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
+  |  |  |----->OUTPUT_PATCHES/                #Patch images/data extracted from WSI
+  |  |  |----->OUTPUT_FEATURES/               #Resultant feature data generated for extracted patch images
+  |  |  |----->OUTPUT_INPUT_DATA/             #Resultant classifier data to be used as input data for the reconstruction model
+  |  |  |----->OUTPUT_SALIENCY_MAPS/          #Resultant saliency map (weight data) generated for extracted patch images
+  |  |  |----->OUTPUT_VISUALS/                #Visualizations produced in classification tasks
+  |  |  |  |----->FUSION_GRIDS/               #Fusion predictions visualized in grid form
+  |  |  |  |----->INPUT_DATA/                 #Classification model predictions; visualizations of input data for reconstruction model
+  |  |  |  |----->OVERLAID_FUSION_GRIDS/      #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS/  #Predictions visualized on WSI
+  |  |  |  |----->OVERLAID_SALIENCY_MAPS/     #Saliency maps upsampled with bilinear interpolation and visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS/           #Predictions visually visualized in grid form
+  |  |  |  |----->SALIENCY_MAPS/              #Saliency maps spatially visualized at original dimensions (Brighter->Critical)
+  |----->RESULTS/                             #Results directory
+  |  |----->KNOWN/                            #Classification training/evaluation results for samples with known labels
+  |  |  |----->VISUALS/                       #Generated visuals for classification of patches and their WSI
+  |  |  |  |----->FUSION_GRIDS/               #Fusion predictions visualized in grid form
+  |  |  |  |----->OVERLAID_FUSION_GRIDS/      #Fusion predictions visualized on WSI
+  |  |  |  |----->OVERLAID_PREDICTION_GRIDS/  #Label grids visualized on WSI
+  |  |  |  |----->PREDICTION_GRIDS/           #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
   |  |  |----->confusionMatrix_<i>dataType</i>.tif   #Confusion matrix visualization; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
   |  |  |----->predictions_<i>dataType</i>.csv       #Predicted per-patch/WSI labels; <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
-  |  |  |----->summaryReport_<i>dataType</i>.csv     #Summary of additional result metrics;  <i>dataType</i> : <i>patches/WSI</i>_<i>initial/fusion</i>
-  |  |----->MODELS                            #Models exported by the program in ONNX (C# compatible) and more python-compatible forms
-  |  |----->RECON                             #Reconstruction model results
-  |  |  |----->TRAIN                          #Training metrics/visualizations
-  |  |  |----->TEST                           #Testing metrics/visualizations
-  |  |----->WSI                               #WSI classification evaluation results
-  |  |  |----->LABEL_GRIDS                    #Predicted labels spatially visualized in grid form (Green->Benign, Red->Malignant)
-  |  |  |----->OVERLAID_LABEL_GRIDS           #Label grids visualized on WSI
-  |  |  |----->predictions_WSI_<i>dataType</i>.csv   #Predicted WSI labels; <i>dataType</i> : <i>initial/fusion</i>
-  |  |  |----->classReport_WSI_<i>dataType</i>.csv   #Classification report of common metrics; <i>dataType</i> : <i>initial/fusion</i>
-  |  |  |----->confusionMatrix_<i>dataType</i>.tif   #Confusion matrix visualization; <i>dataType</i> : <i>initial/fusion</i>
-  |  |  |----->summaryReport_WSI_<i>dataType</i>.csv #Summary of additional result metrics;  <i>dataType</i> : <i>initial/fusion</i>
+  |  |  |----->statistics_<i>dataType</i>.csv        #Result statistics
+  |  |----->MODELS/                           #Models exported by the program in ONNX (C# compatible) and more python-compatible forms
+  |  |----->RECON/                            #Reconstruction model results
+  |  |  |----->TRAIN/                         #Training metrics/visualizations
+  |  |  |----->TEST/                          #Testing metrics/visualizations
+  |  |  |----->CONFIG_#-description.py        #Configuration used to generate results
+  |  |  |----->trainingTime.txt               #Program execution time to run configuration
 </pre>
 
 # INSTALLATION
@@ -169,7 +167,7 @@ Follow the instructions provided in the pre-installation guide specific to your 
     tqdm               4.66.4
 	xgboost            2.1.1
 
-**Minimum Hardware Requirements:** As more functionality is continually being added, minimum hardware specifications cannot be exactly ascertained at this time, however validation of functionality is performed on systems containing 64+ GB DDR3/4/5 RAM, 32+ CPU threads at 3.0+ GHz, A4000/2080Ti/4090 GPUs, and 1TB+ SSD storage. 
+**Minimum Hardware Requirements:** As more functionality is continually being added, minimum hardware specifications cannot be exactly ascertained at this time, however validation of functionality is performed on systems containing 64+ GB DDR3/4/5 RAM, 32+ CPU threads at 3.0+ GHz, A100/4090/A4000/2080Ti GPUs, and 1TB+ SSD storage. 
 
 **GPU/CUDA Acceleration:** Highly recommended. Note that there shouldn't be a need to manually install the CUDA toolkit, or cudnn as pytorch installation using pip should come include the neccessary files. 
 
@@ -330,51 +328,51 @@ Ray/Python pin objects in memory if any reference to them still exists; referenc
 
 ## RESEARCH PRODUCED USING THIS CODE
 
-**Prior/Original and Vision Transformer Classification Network**   
-**Version(s):** v0.0.4  
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB and ViT Classification**   
+**Dataset:** Dataset_1-4x_mixed_80Perc   
 **Citation(s):** P. Afshin et al., ‘Breast Cancer Classification in Deep Ultraviolet Fluorescence Images Using a Patch-Level Vision Transformer Framework’, arXiv preprint arXiv:2505. 07654, 2025.   
-**Available:** (https://arxiv.org/pdf/2505.07654?)   
-**Note:** Results for comparitive network only; vision transformer network implemented outside of this code and was not yet included herein.   
+**Available:** <https://arxiv.org/pdf/2505.07654?>   
+**Note:** Results for comparitive XGB network only; ViT network implemented outside of this code and was not yet included herein.   
 
 ## RELATED RESEARCH
 
-**Prior/Original Classification Network**    
-**Subject:** Breast Cancer Classification for DUV-FSM   
-**Available:** (https://github.com/tyrellto/breast-cancer-research/tree/main)   
-**Note**: Original classification network code for RANDS was derived from this existing work (published under GNU GPLv3), but **entirely** rewritten. 
+**XGB Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
+**Repository:** <https://github.com/tyrellto/breast-cancer-research/tree/main>   
+**Note**: Original XGB network; entirely rewritten/updated inside RANDS. 
 
-**Prior/Original and Diffusion Network**  
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB and Diffusion Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** G. S. Salem, T. To, J. Jorns, T. Yen, B. Yu, and D. H. Ye, “Deep learning for automated detection of breast cancer in deep ultraviolet fluorescence images with diffusion probabilistic model,” arXiv (Cornell University), Jul. 2024, doi: https://doi.org/10.1109/isbi56570.2024.10635349.   
-**Available:** (https://pubmed.ncbi.nlm.nih.gov/40313564/)   
+**Available:** <https://pubmed.ncbi.nlm.nih.gov/40313564/>   
 
-**Prior/Original Classification Network**    
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** T. To et al., “Deep learning classification of deep ultraviolet fluorescence images toward intra-operative margin assessment in breast cancer,” Frontiers in Oncology, vol. 13, Jun. 2023, doi: 10.3389/fonc.2023.1179025   
-**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC10313133/)   
+**Available:** <https://pmc.ncbi.nlm.nih.gov/articles/PMC10313133/>   
 
-**Prior/Original Classification Network**   
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** Lu T, Jorns JM, Ye DH, Patton M, Gilat-Schmidt T, Yen T, Yu B. Analysis of Deep Ultraviolet Fluorescence Images for Intraoperative Breast Tumor Margin Assessment. Proc SPIE Int Soc Opt Eng. 2023 Jan-Feb;12368:1236806. doi: 10.1117/12.2649552. Epub 2023 Mar 6. PMID: 37292087; PMCID: PMC10249647.   
-**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC10249647/)   
+**Available:** <https://pmc.ncbi.nlm.nih.gov/articles/PMC10249647/>   
 
-**Prior/Original Classification Network**  
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** T. To, “Deep Learning Classification of Deep Ultraviolet Fluorescence Images for Margin Assessment During Breast Cancer Surgery,” Master’s Thesis, Marquette University, 2023.   
-**Available:** (https://epublications.marquette.edu/theses_open/768)   
+**Available:** <https://epublications.marquette.edu/theses_open/768>   
 
-**Texture Analysis Classification**  
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**Texture Analysis Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** Lu T, Jorns JM, Ye DH, Patton M, Fisher R, Emmrich A, Schmidt TG, Yen T, Yu B. Automated assessment of breast margins in deep ultraviolet fluorescence images using texture analysis. Biomed Opt Express. 2022 Aug 30;13(9):5015-5034. doi: 10.1364/BOE.464547. PMID: 36187258; PMCID: PMC9484420.   
-**Available:** (https://pmc.ncbi.nlm.nih.gov/articles/PMC9484420/)   
+**Available:** <https://pmc.ncbi.nlm.nih.gov/articles/PMC9484420/>   
 
-**Prior/Original Classification Network**  
-**Subject:** Breast Cancer Classification for DUV-FSM   
+**XGB Classification**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** T. To, S. H. Gheshlaghi and D. H. Ye, "Deep Learning for Breast Cancer Classification of Deep Ultraviolet Fluorescence Images toward Intra-Operative Margin Assessment," 2022 44th Annual International Conference of the IEEE Engineering in Medicine & Biology Society (EMBC), Glasgow, Scotland, United Kingdom, 2022, pp. 1891-1894, doi: 10.1109/EMBC48229.2022.9871819   
-**Available:** (https://doi.org/10.1109/EMBC48229.2022.9871819)
+**Available:** <https://doi.org/10.1109/EMBC48229.2022.9871819>
 
-**Experimental DUV-FSM Platform**   
-**Subject:** First Generation Experimental Platform for DUV-FSM   
+**Experimental DUV-FSM Platform (1st Generation)**   
+**Dataset:** Dataset_0-4x_mixed_80Perc   
 **Citation(s):** Lu T, Jorns JM, Patton M, Fisher R, Emmrich A, Doehring T, Schmidt TG, Ye DH, Yen T, Yu B. Rapid assessment of breast tumor margins using deep ultraviolet fluorescence scanning microscopy. J Biomed Opt. 2020 Nov;25(12):126501. doi: 10.1117/1.JBO.25.12.126501. PMID: 33241673; PMCID: PMC7688317.   
-**Available:** (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7688317/)   
+**Available:** <https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7688317/>   
+

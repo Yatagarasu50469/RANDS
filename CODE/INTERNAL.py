@@ -13,6 +13,7 @@ dir_classifier_models = dir_results + 'MODELS' + os.path.sep
 #Known patch classification
 dir_patches_data = dir_data + 'KNOWN' + os.path.sep
 dir_patches_inputPatches = dir_patches_data + 'INPUT_PATCHES' + os.path.sep
+dir_patches_inputSynPatches = dir_patches_data + 'INPUT_SYNTHETIC_PATCHES' + os.path.sep
 dir_patches_inputWSI = dir_patches_data + 'INPUT_WSI' + os.path.sep
 
 dir_patches_features = dir_patches_data + 'OUTPUT_FEATURES' + os.path.sep
@@ -31,7 +32,7 @@ dir_patches_visuals_overlaidPredictionGrids = dir_patches_results_visuals + 'OVE
 dir_patches_visuals_fusionGrids = dir_patches_results_visuals + 'FUSION_GRIDS' + os.path.sep
 dir_patches_visuals_overlaidFusionGrids = dir_patches_results_visuals + 'OVERLAID_FUSION_GRIDS' + os.path.sep
 
-#Reconstruction
+#Unknown sample classfication
 dir_recon_data = dir_data + 'UNKNOWN' + os.path.sep
 dir_recon_inputWSI = dir_recon_data + 'INPUT_WSI' + os.path.sep
 dir_recon_patches = dir_recon_data + 'OUTPUT_PATCHES' + os.path.sep
@@ -91,7 +92,7 @@ if __name__ == '__main__':
         if not overwrite_patches_features and len(glob.glob(dir_patches_features+'*.npy'))==0: overwrite_patches_features = True    
 
     if classifierTrain:
-        if not overwrite_patches_saliencyMaps and fusionMode_patches and len(glob.glob(dir_patches_salicencyMaps+'*.npy'))==0: overwrite_patches_saliencyMaps = True
+        if not overwrite_patches_saliencyMaps and evaluateMethodWSI == 'GradCam++' and len(glob.glob(dir_patches_salicencyMaps+'*.npy'))==0: overwrite_patches_saliencyMaps = True
     else:
         overwrite_patches_features = False
         overwrite_patches_saliencyMaps = False
@@ -149,7 +150,8 @@ if __name__ == '__main__':
     checkDirectories = [dir_results]
 
     #Patch classification
-    checkDirectories += [dir_patches_features, 
+    checkDirectories += [dir_patches_inputSynPatches, 
+                        dir_patches_features, 
                         dir_patches_salicencyMaps,
                         dir_patches_visuals,
                         dir_patches_visuals_saliencyMaps,

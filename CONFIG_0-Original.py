@@ -15,6 +15,9 @@ classifierEvaluate = True
 #What mechansim should be used for WSI evaluation: 'gradcam++', 'majority'
 evaluateMethodWSI = 'gradcam++'
 
+#Should available synthetic patches be used in training
+addSyntheticPatches = False
+
 #At what ratio of malignant to benign patches should a WSI be predicted to be malignant 
 thresholdWSI_prediction = 0.15
 

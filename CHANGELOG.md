@@ -7,19 +7,21 @@
 
 ## Current Development
 
-**0.0.5**  Return static WSI-level labeling, adjust WSI-level classification mechanism   
+**0.0.7**  Per-fold cross-validation metrics, synthetic training data input   
 
 ## Future Development
 
+**0.0.x**  ViT classifier
 **0.0.x**  Image-to-image U-Net in-painting/reconstruction network   
 **0.0.x**  Sparse sampling simulation   
 **0.0.x**  Neural Image Compression CVAE network   
-**0.0.x**  Updated classifier   
 **x.x.x**  Additional modality reconstruction   
 **x.x.x**  BiGAN integration   
 
 ## Prior Releases
 
+**0.0.6**  Label WSI using patches, disable GradCam++ option for WSI-level majority voting   
+**0.0.5**  Return static WSI-level labeling, adjust WSI-level classification mechanism   
 **0.0.4**  Increase granularity of WSI-level label/prediction criteria   
 **0.0.3**  Ammend naming of blocks (instrument camera captures) to patches (extracted/labeled areas)   
 **0.0.2**  Export ResNet50 in ONNX, remove classifierWSI   

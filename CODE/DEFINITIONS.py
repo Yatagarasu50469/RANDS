@@ -107,53 +107,38 @@ def extractPatchesMultiple(WSIFilenames, patchBackgroundValue, dir_output):
         
     return np.asarray(patchNamesTotal), np.asarray(patchFilenamesTotal), np.asarray(patchSampleNamesTotal), np.asarray(patchLocationsTotal), np.asarray(cropDataTotal), np.asarray(paddingDataTotal), np.asarray(shapeDataTotal)
 
-#Compute metrics for a classification result and visualize/save them as needed
-def computeClassificationMetrics(labels, predictions, baseFilename, suffix):
-    
-    #Specify data class labels
-    displayLabels = ['Benign', 'Malignant']
-    classLabels = np.arange(0, len(displayLabels), 1)
-    
-    #Generate/store a classification report: precision, recall, f1-score, and support
-    classificationReport = classification_report(labels, predictions, labels=classLabels, target_names=displayLabels, output_dict=True)#, zero_division=0.0)
-    classificationReport = pd.DataFrame(classificationReport).transpose()
-    classificationReport.to_csv(baseFilename + 'classReport' + suffix + '.csv')
-
-    #Generate a confusion matrix and extract relevant statistics
-    confusionMatrix = confusion_matrix(labels, predictions, labels=classLabels)
+#Compute metrics, exporting resulting confusion matrix
+def computeClassificationMetrics(labels, predictions):
+    confusionMatrix = confusion_matrix(labels, predictions, labels=[valueBenign, valueMalignant])
     tn, fp, fn, tp = confusionMatrix.ravel()
-    accuracy = (tp+tn)/(tp+tn+fp+fn)
-    sensitivity = tp/(tp+fn)
-    specificity = tn/(tn+fp)
+    statistics = {}
+    statistics['Accuracy'] = (tp+tn)/(tp+tn+fp+fn)
+    statistics['Sensitivity/Recall'] = tp/(tp+fn)
+    statistics['Specificity'] = tn/(tn+fp)
+    statistics['Precision'] = tp/(tp+fp)
+    statistics['f1-Score'] = (2*tp)/(2*tp+fp+fn)
+    return statistics
     
-    #Store relevant statistics
-    summaryReport = {'Accuracy': accuracy, 'Sensitivity': sensitivity, 'Specificity': specificity}
-    summaryReport = pd.DataFrame.from_dict(summaryReport, orient='index')
-    summaryReport.to_csv(baseFilename + 'summaryReport' + suffix + '.csv')
-    
-    #Store confusion matrix
-    displayCM = ConfusionMatrixDisplay(confusionMatrix, display_labels=displayLabels)
+#Export a confusion matrix visualization
+def exportConfusionMatrix(labels, predictions, baseFilename, suffix): 
+    confusionMatrix = confusion_matrix(labels, predictions, labels=[valueBenign, valueMalignant])
+    displayCM = ConfusionMatrixDisplay(confusionMatrix, display_labels=['Benign', 'Malignant'])
     displayCM.plot(cmap='Blues')
     plt.tight_layout()
     if exportLossless: plt.savefig(baseFilename+'confusionMatrix' + suffix + '.tif')
     else: plt.savefig(baseFilename+'confusionMatrix' + suffix + '.jpg')
     plt.close()
-    
-#Convert numpy array to contiguous tensor; issues with lambda functions when using multiprocessing
-def contiguousTensor(inputs):
-    return torch.from_numpy(inputs).contiguous()
-    
-#Rescale tensor; issues with lambda functions when using multiprocessing
-def rescaleTensor(inputs):
-    return inputs.to(dtype=torch.get_default_dtype()).div(255)
-    
-#Generate a torch transform needed for preprocessing image data
-def generateTransform(resizeSize=[], rescale=False, normalize=False):
-    transform = [contiguousTensor]
-    if len(resizeSize) > 0: transform.append(v2.Resize(tuple(resizeSize)))
-    if rescale: transform.append(rescaleTensor)
-    if normalize: transform.append(transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]))
-    return transforms.Compose(transform)
+
+#Consolidate per-fold statistics into a single dataframe, computing average and standard deviation if needed
+def consolidateStatistics(globalStatistics, numFolds): 
+    finalStatistics = {metric: [statistics[metric] for statistics in globalStatistics] for metric in globalStatistics[0]}
+    if numFolds > 1:
+        for metric in globalStatistics[0]: finalStatistics[metric] += [np.mean(finalStatistics[metric]), np.std(finalStatistics[metric])]
+        foldValues = {'Fold': np.arange(1, numFolds+1, dtype=int).astype(str).tolist()+['Avg', 'Std']}
+        finalStatistics = {**foldValues, **finalStatistics}
+    finalStatistics = pd.DataFrame.from_dict(finalStatistics, orient='index')
+    if numFolds == 1: finalStatistics = finalStatistics.drop(['Fold'])
+    return finalStatistics
 
 #Export lossless RGB image data to disk
 def exportImage(filename, image, exportLosslessFlag):
@@ -172,7 +157,7 @@ def rectangle(image, startPos, endPos, color):
     image = cv2.rectangle(image, (startPos[0]+gridThicknessOffset, startPos[1]+gridThicknessOffset), (endPos[0]-gridThicknessOffset, endPos[1]-gridThicknessOffset), (0, 0, 0), -1)
     return image
     
-    #Define how to reset the random seed for deterministic repeatable RNG
+#Define how to reset the random seed for deterministic repeatable RNG
 def resetRandom():
     if manualSeedValue != -1:
         torch.manual_seed(manualSeedValue)
