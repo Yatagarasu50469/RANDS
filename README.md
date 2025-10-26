@@ -250,7 +250,7 @@ Multiple configuration files in the form of CONFIG_*descriptor*.py, can be gener
 ## Running Program
 After configuration, to run the program perform the following command in the root directory (if on Windows, replace python3 with python):
 
-    $ python3 ./START.py
+    $ python3 ./RANDS.py
 
 ## Results
 In the case that multiple configuration files are provided in the form of: CONFIG_*descriptor*.py, the RESULTS folder will be duplicated with the same _*descriptor* suffix for ease of testing. Configuration file will be copied into the results directory at the termination of the program. 
